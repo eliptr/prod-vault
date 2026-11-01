@@ -132,13 +132,22 @@ export default function Vault() {
   }, []);
   useEffect(() => {
     const mq = matchMedia("(prefers-color-scheme: dark)");
-    const apply = () =>
-      (document.documentElement.dataset.theme =
+    const apply = () => {
+      const theme =
         settings.theme === "system"
           ? mq.matches
             ? "dark"
             : "light"
-          : settings.theme);
+          : settings.theme;
+      document.documentElement.dataset.theme = theme;
+      const color = theme === "dark" ? "#191e1b" : "#f5f6f4";
+      document
+        .querySelectorAll('meta[name="theme-color"]')
+        .forEach((meta) => meta.setAttribute("content", color));
+      document
+        .querySelector('meta[name="color-scheme"]')
+        ?.setAttribute("content", theme);
+    };
     apply();
     mq.addEventListener("change", apply);
     return () => mq.removeEventListener("change", apply);
