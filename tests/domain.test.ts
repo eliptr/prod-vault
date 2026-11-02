@@ -195,7 +195,7 @@ test("backup rejects invalid dates, duplicate entries, bad timezone, and danglin
     false,
   );
 });
-test("weekly targets sum sessions, cross DST, and respect week starts", () => {
+test("weekly targets count distinct days, cross DST, and respect week starts", () => {
   const h = {
     ...habit,
     period: "weekly" as const,
@@ -203,6 +203,7 @@ test("weekly targets sum sessions, cross DST, and respect week starts", () => {
     startDate: "2026-10-19",
   };
   const entries = [
+    entry("2026-10-23", 5),
     entry("2026-10-24", 2),
     entry("2026-10-25", 1),
     entry("2026-10-26", 1),
@@ -294,4 +295,83 @@ test("normalization combines unfinished copies without mutating the input", () =
   assert.equal(b.tasks.find((t) => t.done)?.completedAt, stamp);
   assert.equal(b.templates[0].retired, true);
   assert.deepEqual(normalizeBackup(b), b);
+});
+
+test("weekly day counting preserves raw quantities and updates history and linked goals", () => {
+  const h = {
+    ...habit,
+    period: "weekly" as const,
+    target: 2,
+    startDate: "2026-10-19",
+  };
+  const entries = [
+    entry("2026-10-19", 3),
+    entry("2026-10-20", 7),
+    entry("2026-10-21", 0),
+  ];
+  const original = JSON.stringify(entries);
+  const g = {
+    id: "weekly-goal",
+    createdAt: stamp,
+    updatedAt: stamp,
+    title: "Days",
+    source: "habit" as const,
+    sourceId: h.id,
+    target: 10,
+    value: 0,
+    startDate: h.startDate,
+    deadline: "2026-10-20",
+    archived: false,
+  };
+  assert.equal(weeklyTotal(h, entries, "2026-10-21"), 2);
+  assert.equal(weeklyTotal(h, [...entries, entries[0]], "2026-10-21"), 2);
+  assert.equal(
+    goalProgress(g, { ...backup, habits: [h], entries }, "2026-10-21").value,
+    2,
+  );
+  assert.equal(
+    goalProgress(
+      { ...g, startDate: "2026-10-20" },
+      { ...backup, habits: [h], entries },
+      "2026-10-21",
+    ).value,
+    1,
+  );
+  assert.deepEqual(streaks(h, entries, "2026-10-28"), { current: 1, best: 1 });
+  const corrected = entries.map((e) =>
+    e.date === "2026-10-20" ? { ...e, value: 0 } : e,
+  );
+  assert.equal(weeklyTotal(h, corrected, "2026-10-21"), 1);
+  assert.equal(
+    goalProgress(
+      g,
+      { ...backup, habits: [h], entries: corrected },
+      "2026-10-21",
+    ).value,
+    1,
+  );
+  assert.deepEqual(streaks(h, corrected, "2026-10-28"), {
+    current: 0,
+    best: 0,
+  });
+  assert.equal(JSON.stringify(entries), original);
+  assert.equal(
+    goalProgress(
+      g,
+      { ...backup, habits: [{ ...h, period: "daily" }], entries },
+      "2026-10-21",
+    ).value,
+    10,
+  );
+  for (const version of [1, 2])
+    for (const target of [30, 1.5]) {
+      const restored = backupSchema.parse({
+        ...backup,
+        version,
+        habits: [{ ...h, target }],
+        entries,
+      });
+      assert.equal(restored.entries[0].value, 3);
+      assert.equal(restored.habits[0].target, target);
+    }
 });

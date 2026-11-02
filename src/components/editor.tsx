@@ -157,7 +157,7 @@ export default function Editor({
             kind: kind === "weekly" ? "quantity" : kind,
             period: kind === "weekly" ? "weekly" : "daily",
             target: kind === "check" ? 1 : Number(s("target")),
-            unit: s("unit"),
+            unit: kind === "weekly" ? h?.unit || "days" : s("unit"),
             weekdays:
               kind === "weekly"
                 ? [0, 1, 2, 3, 4, 5, 6]
@@ -405,12 +405,12 @@ export default function Editor({
                   name="tracking"
                   value={kind}
                   onChange={(e) =>
-                    setKind(e.target.value as "check" | "quantity")
+                    setKind(e.target.value as "check" | "quantity" | "weekly")
                   }
                 >
                   <option value="check">Daily check-off</option>
                   <option value="quantity">Daily quantity target</option>
-                  <option value="weekly">Weekly quantity target</option>
+                  <option value="weekly">Weekly day target</option>
                 </select>
               </Field>
               {kind !== "check" && (
@@ -420,22 +420,27 @@ export default function Editor({
                     <input
                       type="number"
                       name="target"
-                      min="0.01"
-                      step="any"
-                      defaultValue={h?.target || 30}
+                      key={kind}
+                      min={kind === "weekly" ? 1 : 0.01}
+                      max={kind === "weekly" ? 7 : undefined}
+                      step={kind === "weekly" ? 1 : "any"}
+                      defaultValue={h?.target || (kind === "weekly" ? 3 : 30)}
                       required
                     />
                   </Field>
-                  <Field>
-                    Unit
-                    <input
-                      name="unit"
-                      defaultValue={
-                        h?.unit || (kind === "weekly" ? "sessions" : "minutes")
-                      }
-                      maxLength={30}
-                    />
-                  </Field>
+                  {kind !== "weekly" && (
+                    <Field>
+                      Unit
+                      <input
+                        name="unit"
+                        defaultValue={
+                          h?.unit ||
+                          (kind === "weekly" ? "sessions" : "minutes")
+                        }
+                        maxLength={30}
+                      />
+                    </Field>
+                  )}
                 </div>
               )}
               {kind !== "weekly" && (

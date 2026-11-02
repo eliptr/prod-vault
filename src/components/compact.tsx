@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { Check, ChevronDown, Minus, Pencil, Plus } from "lucide-react";
+import HabitHeatmap from "./habit-heatmap";
 import {
   addDays,
   daysBetween,
@@ -10,7 +11,6 @@ import {
   streaks,
   weeklyTotal,
   logged,
-  weekday,
   type Backup,
   type Habit,
   type Task,
@@ -18,37 +18,8 @@ import {
   type Goal,
 } from "@/lib/domain";
 
-export function dateLabel(date: string) {
-  return new Intl.DateTimeFormat("en", {
-    month: "short",
-    day: "numeric",
-    year:
-      date.slice(0, 4) === String(new Date().getFullYear())
-        ? undefined
-        : "numeric",
-  }).format(new Date(date + "T12:00:00"));
-}
-export function DateValue({
-  date,
-  overdue = false,
-}: {
-  date?: string | null;
-  overdue?: boolean;
-}) {
-  return date ? (
-    <time
-      dateTime={date}
-      aria-label={`${overdue ? "Overdue, " : ""}${new Date(date + "T12:00:00").toLocaleDateString("en", { dateStyle: "full" })}`}
-      title={new Date(date + "T12:00:00").toLocaleDateString("en", {
-        dateStyle: "full",
-      })}
-      className={overdue ? "overdue" : "meta"}
-    >
-      {overdue && "Overdue · "}
-      {dateLabel(date)}
-    </time>
-  ) : null;
-}
+import { DateValue, dateLabel } from "./date-value";
+export { DateValue, dateLabel } from "./date-value";
 function RecordName({
   children,
   onClick,
@@ -122,6 +93,7 @@ export function ValueControl({
           min="0"
           step="any"
           inputMode="decimal"
+          style={{ width: `${Math.min(9, Math.max(3, draft.length + 1))}ch` }}
           value={draft}
           onChange={(e) => {
             setDraft(e.target.value);
@@ -327,14 +299,6 @@ export function TaskRow({
     </div>
   );
 }
-function ink(hex: string) {
-  const c = [1, 3, 5]
-    .map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
-    .map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
-  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2] > 0.179
-    ? "#000"
-    : "#fff";
-}
 export function HabitRow({
   habit: h,
   data,
@@ -356,7 +320,6 @@ export function HabitRow({
   onDate: (date: string) => void;
   onAdjust: (date: string, delta: number) => void;
 }) {
-  const [historyDate, setHistoryDate] = useState<string | null>(null);
   const valueAt = (date: string) =>
     data.entries.find((e) => e.habitId === h.id && e.date === date)?.value || 0;
   const value = valueAt(at);
@@ -378,15 +341,22 @@ export function HabitRow({
               : "Not scheduled"}
         </span>
       );
-    if (h.kind === "check" && !weekly)
+    if (h.kind === "check" || weekly)
       return (
         <button
-          className={"check " + (v >= h.target ? "checked" : "")}
-          aria-label={`${v >= h.target ? "Reopen" : "Complete"} ${h.title}`}
-          aria-pressed={v >= h.target}
-          onClick={() => onEntry(date, v >= h.target ? 0 : h.target)}
+          className={
+            "check " + ((weekly ? v > 0 : v >= h.target) ? "checked" : "")
+          }
+          aria-label={`${(weekly ? v > 0 : v >= h.target) ? "Reopen" : "Complete"} ${h.title}`}
+          aria-pressed={weekly ? v > 0 : v >= h.target}
+          onClick={() =>
+            onEntry(
+              date,
+              (weekly ? v > 0 : v >= h.target) ? 0 : weekly ? 1 : h.target,
+            )
+          }
         >
-          {v >= h.target ? (
+          {(weekly ? v > 0 : v >= h.target) ? (
             <Check size={16} aria-hidden="true" />
           ) : (
             <span className="check-ring" aria-hidden="true" />
@@ -403,15 +373,7 @@ export function HabitRow({
     );
   }
   return (
-    <div
-      className="habit-record"
-      style={
-        {
-          "--accent": h.color,
-          "--accent-ink": ink(h.color),
-        } as React.CSSProperties
-      }
-    >
+    <div className={"habit-record" + (month ? " has-month" : "")}>
       <div className="habit-row">
         <div className="habit-identity">
           <RecordName onClick={onEdit} icon={h.icon}>
@@ -426,113 +388,64 @@ export function HabitRow({
                   : `${value} / ${h.target} ${h.unit}`}
               </span>
             )}
-            <span
-              className="history"
-              role="img"
-              aria-label={history
-                .map(
-                  (d) =>
-                    `${d}: ${!scheduled(h, d) ? "not scheduled" : logged(h, data.entries, d) ? "complete" : "incomplete"}`,
-                )
-                .join("; ")}
-            >
-              {history.map((d) => (
-                <i
-                  key={d}
-                  className={
-                    logged(h, data.entries, d)
-                      ? "filled"
-                      : !scheduled(h, d)
-                        ? "unscheduled"
-                        : ""
-                  }
-                />
-              ))}
-            </span>
+            {!month && (
+              <span
+                className="history"
+                role="img"
+                aria-label={history
+                  .map(
+                    (d) =>
+                      `${d}: ${!scheduled(h, d) ? "not scheduled" : logged(h, data.entries, d) ? "complete" : "incomplete"}`,
+                  )
+                  .join("; ")}
+              >
+                {history.map((d) => (
+                  <i
+                    key={d}
+                    className={
+                      logged(h, data.entries, d)
+                        ? "filled"
+                        : !scheduled(h, d)
+                          ? "unscheduled"
+                          : ""
+                    }
+                  />
+                ))}
+              </span>
+            )}
             <span
               className="streak"
               title={`Current streak ${stats.current}; best ${stats.best}`}
               aria-label={`Streak ${stats.current}, best ${stats.best}`}
             >
+              {month ? "Streak " : ""}
               {stats.current}
               {weekly ? "w" : "d"}
+              {month ? ` · Best ${stats.best}${weekly ? "w" : "d"}` : ""}
             </span>
           </div>
+          {weekly &&
+            (!Number.isInteger(h.target) || h.target < 1 || h.target > 7) && (
+              <span className="field-error">Set target to 1–7 days</span>
+            )}
         </div>
         <div
           className={weekly ? "habit-control weekly-quantity" : "habit-control"}
         >
-          {weekly && (
-            <span className="entry-caption">
-              {at === today ? "Today" : dateLabel(at)}
-            </span>
-          )}
+          {month && <span className="entry-caption">Today</span>}
           {controls(at)}
         </div>
       </div>
       {month && (
-        <details className="habit-month">
-          <summary>
-            History
-            <span className="meta">
-              {weekly
-                ? "Weekly"
-                : h.weekdays.length === 7
-                  ? "Daily"
-                  : h.weekdays
-                      .map((d) => ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"][d])
-                      .join(" ")}{" "}
-              · best {stats.best}
-              {weekly ? "w" : "d"}
-            </span>
-          </summary>
-          <div className="habit-grid">
-            {Array.from({ length: 7 }, (_, i) => (
-              <span className="day-name" key={`weekday-${i}`}>
-                {
-                  ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][
-                    (i + data.settings.weekStart) % 7
-                  ]
-                }
-              </span>
-            ))}
-            {Array.from(
-              {
-                length:
-                  (weekday(month.start) - data.settings.weekStart + 7) % 7,
-              },
-              (_, i) => (
-                <span key={`pad-${i}`} aria-hidden="true" />
-              ),
-            )}
-            {daysBetween(month.start, month.end).map((d) => (
-              <button
-                key={d}
-                disabled={!scheduled(h, d) || d > today || h.archived}
-                aria-label={`${h.title} ${d}${logged(h, data.entries, d) ? " complete" : ""}`}
-                aria-pressed={historyDate === d}
-                className={`${logged(h, data.entries, d) ? "filled" : ""} ${historyDate === d ? "selected" : ""}`}
-                onClick={() => setHistoryDate(d)}
-              >
-                {Number(d.slice(-2))}
-              </button>
-            ))}
-          </div>
-          {historyDate && (
-            <div className="history-editor">
-              <div>
-                <DateValue date={historyDate} />
-                <button
-                  className="text-action"
-                  onClick={() => onDate(historyDate)}
-                >
-                  Open calendar
-                </button>
-              </div>
-              {controls(historyDate)}
-            </div>
-          )}
-        </details>
+        <HabitHeatmap
+          habit={h}
+          entries={data.entries}
+          month={month}
+          today={today}
+          weekStart={data.settings.weekStart}
+          controls={controls}
+          onDate={onDate}
+        />
       )}
     </div>
   );

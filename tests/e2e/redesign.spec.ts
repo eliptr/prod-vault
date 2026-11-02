@@ -99,17 +99,19 @@ test("thumb add and inline historical edits work offline", async ({
   await page.waitForFunction(() => !!navigator.serviceWorker.controller);
   await context.setOffline(true);
   await page.goto("/#habits");
-  await page.getByText("History", { exact: false }).click();
   const grid = page.locator(".habit-grid");
   const dates = grid.locator("button:enabled");
   await dates.last().click();
   const entry = page.locator(".history-editor");
-  await entry.getByRole("button", { name: /Increase/ }).click();
-  await entry.getByRole("button", { name: /Increase/ }).click();
-  await expect(entry.getByRole("spinbutton")).toHaveValue("2");
+  await entry
+    .getByRole("button", { name: "Complete Gym sessions", exact: true })
+    .click();
+  await expect(
+    entry.getByRole("button", { name: "Reopen Gym sessions", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   await page.reload();
   await expect(
-    page.getByText("2 / 3 this week", { exact: true }),
+    page.getByText("1 / 3 this week", { exact: true }),
   ).toBeVisible();
   await context.setOffline(false);
 });
@@ -213,7 +215,7 @@ test("all screens reflow with long records in both themes", async ({
     ),
   ).toBe(true);
   const targets = await page
-    .locator(".value-control button, .check, .quick-trigger")
+    .locator(".check, .quick-trigger")
     .evaluateAll((nodes) =>
       nodes
         .map((n) => n.getBoundingClientRect())

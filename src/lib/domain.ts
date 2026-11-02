@@ -216,15 +216,18 @@ export function weeklyTotal(
 ) {
   const start = weekStartFor(date, weekStart),
     end = addDays(start, 6);
-  return entries
-    .filter(
-      (e) =>
-        e.habitId === h.id &&
-        e.date >= start &&
-        e.date >= h.startDate &&
-        e.date <= end,
-    )
-    .reduce((sum, e) => sum + e.value, 0);
+  return new Set(
+    entries
+      .filter(
+        (e) =>
+          e.habitId === h.id &&
+          e.date >= start &&
+          e.date >= h.startDate &&
+          e.date <= end &&
+          e.value > 0,
+      )
+      .map((e) => e.date),
+  ).size;
 }
 export function logged(h: Habit, entries: Entry[], date: string) {
   const value =
@@ -355,6 +358,22 @@ export function goalProgress(
       missing: !data.projects.some((p) => p.id === g.sourceId),
     };
   const h = data.habits.find((h) => h.id === g.sourceId);
+  if (h?.period === "weekly")
+    return {
+      missing: false,
+      value: new Set(
+        data.entries
+          .filter(
+            (e) =>
+              e.habitId === h.id &&
+              e.value > 0 &&
+              e.date >= g.startDate &&
+              e.date <= (g.deadline || today) &&
+              e.date <= today,
+          )
+          .map((e) => e.date),
+      ).size,
+    };
   return {
     missing: !h,
     value: h

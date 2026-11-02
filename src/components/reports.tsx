@@ -131,7 +131,7 @@ export default function Reports({
                 <strong>{h.title}</strong>
                 <span>
                   {weeklyTotal(h, data.entries, today, data.settings.weekStart)}{" "}
-                  / {h.target} {h.unit} this week
+                  / {h.target} days this week
                 </span>
                 <span>
                   Current: {stats.current}w · Best: {stats.best}w

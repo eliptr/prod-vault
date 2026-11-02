@@ -15,7 +15,6 @@ import {
   Settings as SettingsIcon,
   WifiOff,
   Plus,
-  X,
 } from "lucide-react";
 import { db, snapshot, materialize, restore } from "@/lib/db";
 import {
@@ -658,7 +657,7 @@ export default function Vault() {
         </nav>
       </aside>
       <main id="main-content" tabIndex={-1}>
-        <div className="content">
+        <div className={"content" + (page === "today" ? " today-content" : "")}>
           <header className="section-heading">
             <h1>{titles[page] || "Today"}</h1>
             {page === "today" && (
@@ -672,7 +671,10 @@ export default function Vault() {
             )}
             {["habits", "tasks", "projects", "goals"].includes(page) && (
               <button
-                className="primary"
+                className={
+                  "primary" +
+                  (["habits", "tasks"].includes(page) ? " phone-hidden" : "")
+                }
                 aria-label={`Add ${addKind}`}
                 onClick={() => newItem(addKind)}
               >
@@ -816,7 +818,7 @@ export default function Vault() {
                   {showArchive ? "Hide archived" : "Show archived"}
                 </button>
               </div>
-              <div className="panel habit-list">
+              <div className="habit-list">
                 {habits.length ? (
                   habits.map((h) => habitRow(h, today, true))
                 ) : (
@@ -924,16 +926,23 @@ export default function Vault() {
                   </time>
                 </h2>
               </div>
-              <div className="panel">
-                {activeHabits
-                  .filter((h) => scheduled(h, day))
-                  .map((h) => habitRow(h, day))}
-              </div>
               <Section title="Tasks" action={() => newItem("task")}>
                 {data.tasks.some((t) => t.due === day) ? (
                   data.tasks.filter((t) => t.due === day).map(taskRow)
                 ) : (
                   <Empty text="No tasks" />
+                )}
+              </Section>
+              <Section
+                title="Habits"
+                count={activeHabits.filter((h) => scheduled(h, day)).length}
+              >
+                {activeHabits.some((h) => scheduled(h, day)) ? (
+                  activeHabits
+                    .filter((h) => scheduled(h, day))
+                    .map((h) => habitRow(h, day))
+                ) : (
+                  <Empty text="No habits" />
                 )}
               </Section>
             </>
@@ -1219,7 +1228,11 @@ export default function Vault() {
             <button
               className="quick-trigger"
               aria-label={
-                page === "today" ? "Quick add" : `Quick add ${addKind}`
+                page === "today"
+                  ? "Quick add"
+                  : ["habits", "tasks"].includes(page)
+                    ? `Add ${addKind}`
+                    : `Quick add ${addKind}`
               }
               aria-expanded={page === "today" ? quickAdd : undefined}
               aria-controls={
@@ -1229,12 +1242,7 @@ export default function Vault() {
                 page === "today" ? setQuickAdd(!quickAdd) : newItem(addKind)
               }
             >
-              {quickAdd ? (
-                <X size={16} aria-hidden="true" />
-              ) : (
-                <Plus size={16} aria-hidden="true" />
-              )}
-              Add
+              <Plus size={20} aria-hidden="true" />
             </button>
           </div>
         )}

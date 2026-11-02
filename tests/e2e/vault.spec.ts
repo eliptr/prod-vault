@@ -46,16 +46,7 @@ test("projects, linked goals, quantity history, recurrence, and deletion", async
   await expect(
     page.getByRole("spinbutton", { name: /Drink water quantity/ }),
   ).toHaveValue("8");
-  await page
-    .locator(".habit-record")
-    .filter({
-      has: page.getByRole("button", { name: "Drink water", exact: true }),
-    })
-    .getByText("History", { exact: false })
-    .click();
-  await page
-    .getByRole("button", { name: `Drink water ${today} complete` })
-    .click();
+  await page.locator(`.habit-grid button[data-date="${today}"]`).click();
   await expect(page.locator(".history-editor")).toBeVisible();
   await page
     .getByRole("button", { name: "Open calendar", exact: true })

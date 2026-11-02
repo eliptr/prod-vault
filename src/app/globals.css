@@ -538,24 +538,31 @@ main {
 .value-control {
   display: inline-flex;
   align-items: center;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: var(--surface);
+  border: 0;
+  background: transparent;
+  color: var(--muted);
 }
 .value-control button {
   padding: 0;
-  width: 32px;
-  min-height: 32px;
+  width: 24px;
+  min-width: 24px;
+  min-height: 28px;
   flex-shrink: 0;
 }
 .value-control input {
-  width: 50px;
-  min-height: 32px;
+  min-width: 32px;
+  max-width: 96px;
+  min-height: 28px;
   border: 0;
   padding: 2px;
   text-align: center;
   background: transparent;
+  color: var(--text);
   -moz-appearance: textfield;
+}
+.value-control:focus-within {
+  border-radius: 4px;
+  background: var(--subtle);
 }
 .value-control input::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -571,29 +578,106 @@ main {
   border-color: var(--danger);
   outline: 1px solid var(--danger);
 }
+.habit-list,
+.content:has(.habit-list) > .toolbar {
+  max-width: 640px;
+}
+.habit-record.has-month {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 12px 8px;
+}
+.has-month > .habit-row {
+  flex: 0 1 220px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 0;
+}
+.has-month .habit-identity {
+  flex: none;
+  width: 100%;
+}
+.has-month .habit-meta {
+  margin-top: 4px;
+}
+.has-month .habit-control {
+  align-items: flex-start;
+}
 .habit-month {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
+.habit-grid {
+  display: grid;
+  grid-template-rows: repeat(7, 24px);
+  grid-auto-columns: 24px;
+  grid-auto-flow: column;
+  gap: 2px;
+  width: max-content;
+  max-width: 100%;
+}
+.heatmap-day {
+  align-self: center;
+  color: var(--muted);
+  font-size: 0.6875rem;
+}
+.habit-grid button {
+  min-width: 24px;
+  width: 24px;
+  min-height: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 3px;
+}
+.heatmap-square {
+  display: block;
+  width: 14px;
+  height: 14px;
+  background: var(--line);
+  border-radius: 2px;
+}
+.habit-grid [data-level="1"] .heatmap-square {
+  background: color-mix(in srgb, var(--green) 35%, var(--surface));
+}
+.habit-grid [data-level="2"] .heatmap-square {
+  background: color-mix(in srgb, var(--green) 65%, var(--surface));
+}
+.habit-grid [data-level="3"] .heatmap-square {
+  background: var(--green);
+}
+.habit-grid button.selected {
+  outline: 1px solid var(--green);
+  outline-offset: -1px;
+}
+.habit-grid .unscheduled[data-level="0"] .heatmap-square {
+  background: transparent;
+  border: 1px dotted var(--line);
+}
+.habit-grid button:disabled {
+  opacity: 0.5;
+}
+.history-editor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  padding-top: 8px;
+  margin-top: 4px;
   border-top: 1px solid var(--line);
-  padding: 0 12px;
+  max-width: 230px;
 }
-summary {
-  cursor: pointer;
-  padding: 6px 0;
-  min-height: 32px;
-  color: var(--green);
-  font-size: 0.75rem;
+.history-editor > time {
+  flex-basis: 100%;
 }
-.habit-month > summary .meta {
-  margin-left: 12px;
-}
-.habit-grid,
 .calendar-grid {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 4px;
-}
-.habit-grid {
-  padding: 4px 0 12px;
-  max-width: 420px;
 }
 .day-name {
   text-align: center;
@@ -601,32 +685,11 @@ summary {
   font-size: 0.75rem;
   padding: 4px 0;
 }
-.habit-grid button {
-  padding: 0;
-  border: 1px solid var(--line);
-  min-height: 32px;
+.today-content {
+  padding: 16px;
 }
-.habit-grid button.filled {
-  background: var(--accent);
-  color: var(--accent-ink);
-  border-color: transparent;
-}
-.habit-grid button.selected {
-  outline: 2px solid var(--green);
-  outline-offset: 1px;
-}
-.history-editor {
-  border-top: 1px solid var(--line);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px 0;
-}
-.history-editor > div {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+.today-content .overview {
+  gap: 16px 24px;
 }
 .progress-row {
   display: flex;
@@ -1198,6 +1261,24 @@ legend {
       calc(var(--nav-height) + 72px + var(--safe-area-bottom))
       max(12px, env(safe-area-inset-left, 0px));
   }
+  .today-content {
+    padding: calc(8px + var(--safe-area-top))
+      max(8px, env(safe-area-inset-right, 0px))
+      calc(var(--nav-height) + 72px + var(--safe-area-bottom))
+      max(8px, env(safe-area-inset-left, 0px));
+  }
+  .today-content .overview {
+    gap: 12px;
+  }
+  .today-content .summary-strip {
+    margin-bottom: 8px;
+  }
+  .phone-hidden {
+    display: none;
+  }
+  .has-month > .habit-row {
+    flex: 1 1 128px;
+  }
   .section-heading {
     min-height: 44px;
     gap: 10px;
@@ -1290,12 +1371,13 @@ legend {
     gap: 4px 6px;
   }
   .value-control button {
-    width: 44px;
-    min-height: 44px;
+    width: 28px;
+    min-width: 28px;
+    min-height: 32px;
   }
   .value-control input {
-    width: 44px;
-    min-height: 44px;
+    min-width: 36px;
+    min-height: 32px;
     font-size: 1rem;
   }
   .weekly-quantity .entry-caption {
@@ -1303,13 +1385,6 @@ legend {
   }
   .weekly-quantity {
     gap: 2px;
-  }
-  .habit-grid button {
-    min-height: 44px;
-    min-width: 0;
-  }
-  .habit-month {
-    padding-inline: 4px;
   }
   summary {
     min-height: 44px;
@@ -1329,7 +1404,7 @@ legend {
     width: 56px;
   }
   .goal-value {
-    max-width: 140px;
+    max-width: 65%;
   }
   .record-meta {
     gap: 2px 8px;
@@ -1467,7 +1542,9 @@ legend {
     background: var(--green);
     color: var(--bg);
     min-height: 44px;
-    padding: 8px 14px;
+    padding: 0;
+    width: 44px;
+    min-width: 44px;
     border-radius: 6px;
   }
   .quick-menu {

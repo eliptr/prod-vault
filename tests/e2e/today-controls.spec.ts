@@ -1,9 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { defaults } from "../../src/lib/domain";
-const date = () =>
-  new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Athens" }).format(
-    new Date(),
-  );
+
 test("weekly sessions, goals, project tasks, daily display, and offline persistence", async ({
   page,
   context,
@@ -13,23 +10,16 @@ test("weekly sessions, goals, project tasks, daily display, and offline persiste
   await page.getByLabel("Name", { exact: true }).fill("Gym");
   await page.getByLabel("Tracking").selectOption("weekly");
   await page.getByLabel("Weekly target").fill("3");
-  await page.getByLabel("Unit", { exact: true }).fill("sessions");
   await page.getByRole("button", { name: "Save habit" }).click();
-  await page
-    .getByRole("button", {
-      name: `Increase Gym quantity for ${date()}`,
-      exact: true,
-    })
-    .click();
-  await page
-    .getByRole("button", {
-      name: `Increase Gym quantity for ${date()}`,
-      exact: true,
-    })
-    .click();
+  await page.getByRole("button", { name: "Complete Gym", exact: true }).click();
   await expect(
-    page.getByText("2 / 3 this week", { exact: true }),
+    page.getByText("1 / 3 this week", { exact: true }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "Reopen Gym", exact: true }).click();
+  await expect(
+    page.getByText("0 / 3 this week", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Complete Gym", exact: true }).click();
   await page.getByRole("button", { name: "Add goal", exact: true }).click();
   await page.getByLabel("Name", { exact: true }).fill("Sessions goal");
   await page.getByLabel("Target", { exact: true }).fill("10");
@@ -127,7 +117,7 @@ test("weekly sessions, goals, project tasks, daily display, and offline persiste
   await context.setOffline(true);
   await page.reload();
   await expect(
-    page.getByText("2 / 3 this week", { exact: true }),
+    page.getByText("1 / 3 this week", { exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("spinbutton", {

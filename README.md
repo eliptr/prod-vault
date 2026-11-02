@@ -42,7 +42,7 @@ Records live in IndexedDB through Dexie, with a versioned schema. Settings → E
 
 Core workflows work offline after a successful first online load and service-worker installation. Update prompts activate a waiting worker only after editors close and pending writes finish. Updates preserve IndexedDB. Date keys remain unchanged if the configured timezone changes. Daily rollover refreshes within 30 seconds. Weeks start Monday by default; timezone defaults to Europe/Athens.
 
-Habits support daily check-offs, daily quantities, and weekly quantity targets. Weekly entries count sessions (including multiple sessions on one day), reset their displayed total at the configured week boundary, and retain dated history. Weekly streaks count successful weeks; the current week does not break a streak before it ends. Reports separate daily completion from weekly targets.
+Habits support daily check-offs, daily quantities, and weekly day targets. Weekly progress counts distinct dates with positive entries, at most once per date, using the configured week start. Existing quantities remain stored unchanged and are interpreted as checked days. Weekly-linked goals also count distinct checked dates. New weekly targets are whole numbers from 1 to 7; legacy targets outside that range are retained and flagged until explicitly edited. Weekly streaks count successful weeks; the current week does not break a streak before it ends. Reports separate daily completion from weekly targets.
 
 “Show daily until completed” keeps a single task visible on Today until its one completion, including after its due date. Weekly recurrence still creates dated occurrences. The v3 database upgrade combines unfinished legacy daily copies into one task using the earliest unfinished copy’s details and due date, preserves completed history, and retires old daily templates. Settings provides a downloadable pre-update recovery snapshot containing the original records. Export uses backup format v2; v1 imports receive the same conversion transactionally. Recovery snapshots stay local and are downloaded separately from regular backups.
 
@@ -60,6 +60,8 @@ The UI starts empty. “Settings → Load sample data” is an explicit opt-in, 
 
 ## UI redesign and rollback
 
-The compact workspace uses shared rows, comfortable phone controls, a thumb-accessible Add action, inline habit history editing and restorable task/calendar view state. All original hash routes remain valid. No schema, backup-format or dependency changes accompany the redesign.
+The compact workspace uses shared rows, discreet numeric controls, a thumb-accessible plus action, inline monthly habit heatmaps and restorable task/calendar view state. Monthly heatmaps support date selection, arrow-key movement and historical edits. Calendar lists tasks before habits. All original hash routes remain valid. No schema, backup-format or dependency changes accompany the redesign.
 
 The working version before this redesign is tagged `pre-ui-redesign-2026-11-02` on GitHub. See [REDESIGN-CHECKLIST.md](REDESIGN-CHECKLIST.md) for preservation checks and the production rollback reference, and [DESIGN.md](DESIGN.md) for the UI system. Redeploy an earlier version to the existing production origin so the browser can continue using its local records.
+
+The release before monthly heatmaps and weekly day counting is tagged `pre-habit-refinements-2026-11-02`. This tag restores the prior interface and quantity-based weekly calculations without requiring a database migration.

@@ -1,5 +1,7 @@
 # Redesign preservation checklist
 
+The original checklist below documents release `d1fa3ac`. The subsequent habit refinements are recorded at the end.
+
 Rollback: annotated Git tag `pre-ui-redesign-2026-11-02`, commit `0dbc46b`, pushed to origin before changes. Work branch: `codex/compact-workspace-redesign`.
 
 To restore the old source safely, create a branch from the tag rather than resetting or deleting current work:
@@ -40,3 +42,24 @@ The tag restores application code, not personal browser records. Export JSON bef
 The previous production deployment was `dpl_GsnySnmSvgbLvLYkLpnj3LfM7tp5`, URL `https://prod-vault-59uv7kf3g-eliptrs-projects.vercel.app`. The stable production origin is `https://prod-vault-ten.vercel.app`.
 
 Redeploy the rollback tag in the existing Vercel project to restore the old UI at the same origin. A source rollback does not restore or erase personal IndexedDB records. Export JSON before switching versions. Vercel's platform rollback can suspend automatic production alias assignment; promoting a subsequent production deployment restores it.
+
+## Monthly heatmap and weekly-day refinements
+
+Rollback tag: `pre-habit-refinements-2026-11-02`, pointing to `d1fa3ac744c4ff78b19bb80bb3a538537eb47411`, pushed to GitHub before editing.
+
+- [x] Borderless compact numeric controls; exact values, validation and decrements retained.
+- [x] Smaller Today gutters and gaps; safe areas retained.
+- [x] Icon-only phone Add; duplicate Habits/Tasks phone header actions removed; desktop controls retained.
+- [x] Calendar tasks precede habits with headings and empty states.
+- [x] Monthly contribution grids, inline historical edits, keyboard navigation and week-start settings.
+- [x] Weekly totals, streaks, reports and linked goals count distinct positive-entry dates.
+- [x] Weekly checkboxes write 1/0; old quantities and legacy targets remain untouched until explicitly edited.
+- [x] New weekly target validation is editor-only; v1/v2 legacy backups remain accepted.
+- [x] No database migration, dependency change or backup format change.
+- [x] Final production build, type checking, 12 unit tests and cross-browser acceptance.
+- [x] All 62 browser scenarios passed; the parallel suite had one WebKit contrast-scan timeout which passed when rerun alone. The service-worker lifecycle check remains intentionally skipped in WebKit.
+- [x] Final targeted run: 12/12 checks passed after the schedule-history visibility fix.
+
+Live release verification follows publishing to the stable production origin; results are reported in the delivery message.
+
+- [ ] Physical iPhone installation/keyboard behavior remains device confirmation.
