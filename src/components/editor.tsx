@@ -1,6 +1,6 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
-import { X } from "lucide-react";
+import { useId, useState } from "react";
+import CenteredDialog from "./dialog";
 import { ZodError } from "zod";
 import { db, remove } from "@/lib/db";
 import {
@@ -19,6 +19,7 @@ import {
 export type Edit = {
   kind: "habit" | "task" | "project" | "goal";
   record?: Habit | Task | Project | Goal;
+  projectId?: string;
 };
 export default function Editor({
   edit,
@@ -33,26 +34,22 @@ export default function Editor({
   onClose: () => void;
   onError: (s: string) => void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
+  const formId = useId();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [source, setSource] = useState(
     edit.kind === "goal" ? (edit.record as Goal)?.source || "manual" : "manual",
   );
-  const [kind, setKind] = useState((edit.record as Habit)?.kind || "check");
+  const [kind, setKind] = useState(
+    (edit.record as Habit)?.period === "weekly"
+      ? "weekly"
+      : (edit.record as Habit)?.kind || "check",
+  );
   const r = edit.record;
   const h = r as Habit | undefined;
   const t = r as Task | undefined;
   const p = r as Project | undefined;
   const g = r as Goal | undefined;
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    dialog.current?.showModal();
-    dialog.current
-      ?.querySelector<HTMLInputElement>('input[name="title"]')
-      ?.focus();
-    return () => previous?.focus();
-  }, []);
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
@@ -73,10 +70,14 @@ export default function Editor({
             ...base,
             icon: s("icon") || "✦",
             color: s("color"),
-            kind,
+            kind: kind === "weekly" ? "quantity" : kind,
+            period: kind === "weekly" ? "weekly" : "daily",
             target: kind === "check" ? 1 : Number(s("target")),
             unit: s("unit"),
-            weekdays: f.getAll("weekdays").map(Number),
+            weekdays:
+              kind === "weekly"
+                ? [0, 1, 2, 3, 4, 5, 6]
+                : f.getAll("weekdays").map(Number),
             startDate: h?.startDate || today,
             archived: h?.archived || false,
           }),
@@ -106,7 +107,7 @@ export default function Editor({
         );
       if (edit.kind === "task") {
         const oldTemplate = t?.templateId
-          ? data.templates.find((v) => v.id === t.templateId)
+          ? data.templates.find((v) => v.id === t.templateId && !v.retired)
           : undefined;
         const subtasks = s("subtasks")
           .split("\n")
@@ -126,13 +127,14 @@ export default function Editor({
           done: t?.done || false,
           completedAt: t?.completedAt || null,
           subtasks,
-          templateId: t?.templateId || null,
+          templateId: s("frequency") === "daily" ? null : t?.templateId || null,
+          showDaily: s("frequency") === "daily",
         });
         const frequency = s("frequency");
         if (frequency !== "none" && !task.due)
           throw new Error("Choose a due date for a recurring task.");
         await db.transaction("rw", [db.tasks, db.templates], async () => {
-          if (!r && frequency !== "none") {
+          if (!r && frequency === "weekly") {
             const id = crypto.randomUUID();
             await db.templates.put(
               templateSchema.parse({
@@ -144,7 +146,7 @@ export default function Editor({
               }),
             );
           } else {
-            if (!oldTemplate && frequency !== "none") {
+            if (!oldTemplate && frequency === "weekly") {
               const id = crypto.randomUUID();
               await db.templates.put(
                 templateSchema.parse({
@@ -153,7 +155,7 @@ export default function Editor({
                   frequency,
                   startDate: addDays(
                     task.due && task.due > today ? task.due : today,
-                    frequency === "daily" ? 1 : 7,
+                    7,
                   ),
                   endDate: null,
                 }),
@@ -163,18 +165,20 @@ export default function Editor({
             await db.tasks.put(task);
             if (oldTemplate) {
               await db.templates.update(oldTemplate.id, { endDate: today });
+              if (frequency !== "weekly") task.templateId = null;
+              await db.tasks.put(task);
               await db.tasks
                 .where("templateId")
                 .equals(oldTemplate.id)
-                .filter((v) => !!v.due && v.due > today)
+                .filter((v) => !!v.due && v.due > today && !v.done)
                 .delete();
-              if (frequency !== "none")
+              if (frequency === "weekly")
                 await db.templates.put(
                   templateSchema.parse({
                     ...task,
                     id: crypto.randomUUID(),
                     frequency,
-                    startDate: addDays(today, frequency === "daily" ? 1 : 7),
+                    startDate: addDays(today, 7),
                     endDate: null,
                   }),
                 );
@@ -226,28 +230,38 @@ export default function Editor({
     }
   }
   return (
-    <dialog
-      aria-label={`${r ? "Edit" : "New"} ${edit.kind}`}
-      ref={dialog}
-      onCancel={onClose}
-      className="editor"
-    >
-      <form onSubmit={submit}>
-        <header>
-          <div>
-            <h2>
-              {r ? "Edit" : "New"} {edit.kind}
-            </h2>
-          </div>
+    <CenteredDialog
+      title={`${r ? "Edit" : "New"} ${edit.kind}`}
+      onClose={onClose}
+      footer={
+        <>
+          {r && (
+            <button
+              type="button"
+              className="danger"
+              disabled={busy}
+              onClick={destroy}
+            >
+              Delete
+            </button>
+          )}
+          {r && (edit.kind === "habit" || edit.kind === "goal") && (
+            <button type="button" disabled={busy} onClick={archive}>
+              {h?.archived || g?.archived ? "Unarchive" : "Archive"}
+            </button>
+          )}
           <button
-            type="button"
-            className="icon-button"
-            onClick={onClose}
-            aria-label="Close editor"
+            type="submit"
+            form={formId}
+            className="primary"
+            disabled={busy}
           >
-            <X size={20} />
+            {busy ? "Saving…" : "Save " + edit.kind}
           </button>
-        </header>
+        </>
+      }
+    >
+      <form id={formId} onSubmit={submit} className="editor-form">
         <label>
           Name
           <input
@@ -255,7 +269,6 @@ export default function Editor({
             defaultValue={r?.title}
             required
             maxLength={edit.kind === "task" ? 200 : 100}
-            autoFocus
           />
         </label>
         {edit.kind === "habit" && (
@@ -287,13 +300,14 @@ export default function Editor({
                 }
               >
                 <option value="check">Daily check-off</option>
-                <option value="quantity">Quantity target</option>
+                <option value="quantity">Daily quantity target</option>
+                <option value="weekly">Weekly quantity target</option>
               </select>
             </label>
-            {kind === "quantity" && (
+            {kind !== "check" && (
               <div className="form-row">
                 <label>
-                  Daily target
+                  {kind === "weekly" ? "Weekly target" : "Daily target"}
                   <input
                     type="number"
                     name="target"
@@ -307,30 +321,34 @@ export default function Editor({
                   Unit
                   <input
                     name="unit"
-                    defaultValue={h?.unit || "minutes"}
+                    defaultValue={
+                      h?.unit || (kind === "weekly" ? "sessions" : "minutes")
+                    }
                     maxLength={30}
                   />
                 </label>
               </div>
             )}
-            <fieldset>
-              <legend>Scheduled days</legend>
-              <div className="weekdays">
-                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
-                  (day, i) => (
-                    <label key={day}>
-                      <input
-                        type="checkbox"
-                        name="weekdays"
-                        value={i}
-                        defaultChecked={h ? h.weekdays.includes(i) : true}
-                      />
-                      <span>{day}</span>
-                    </label>
-                  ),
-                )}
-              </div>
-            </fieldset>
+            {kind !== "weekly" && (
+              <fieldset>
+                <legend>Scheduled days</legend>
+                <div className="weekdays">
+                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
+                    (day, i) => (
+                      <label key={day}>
+                        <input
+                          type="checkbox"
+                          name="weekdays"
+                          value={i}
+                          defaultChecked={h ? h.weekdays.includes(i) : true}
+                        />
+                        <span>{day}</span>
+                      </label>
+                    ),
+                  )}
+                </div>
+              </fieldset>
+            )}
             <p className="hint">Schedule/target edits affect history.</p>
           </>
         )}
@@ -356,7 +374,10 @@ export default function Editor({
             </div>
             <label>
               Project
-              <select name="projectId" defaultValue={t?.projectId || ""}>
+              <select
+                name="projectId"
+                defaultValue={t?.projectId || edit.projectId || ""}
+              >
                 <option value="">No project</option>
                 {data.projects.map((p) => (
                   <option key={p.id} value={p.id}>
@@ -366,17 +387,20 @@ export default function Editor({
               </select>
             </label>
             <label>
-              Repeat
+              Schedule
               <select
                 name="frequency"
                 defaultValue={
-                  data.templates.find((v) => v.id === t?.templateId)
-                    ?.frequency || "none"
+                  t?.showDaily
+                    ? "daily"
+                    : data.templates.find(
+                        (v) => v.id === t?.templateId && !v.retired,
+                      )?.frequency || "none"
                 }
               >
-                <option value="none">Does not repeat</option>
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
+                <option value="none">One time</option>
+                <option value="daily">Show daily until completed</option>
+                <option value="weekly">Repeat weekly</option>
               </select>
             </label>
             {t?.templateId && (
@@ -516,27 +540,7 @@ export default function Editor({
             {error}
           </p>
         )}
-        <footer>
-          {r && (
-            <button
-              type="button"
-              className="danger"
-              disabled={busy}
-              onClick={destroy}
-            >
-              Delete
-            </button>
-          )}
-          {r && (edit.kind === "habit" || edit.kind === "goal") && (
-            <button type="button" disabled={busy} onClick={archive}>
-              {h?.archived || g?.archived ? "Unarchive" : "Archive"}
-            </button>
-          )}
-          <button type="submit" className="primary" disabled={busy}>
-            {busy ? "Saving…" : "Save " + edit.kind}
-          </button>
-        </footer>
       </form>
-    </dialog>
+    </CenteredDialog>
   );
 }

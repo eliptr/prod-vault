@@ -11,18 +11,24 @@ const base = {
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 };
-export const habitSchema = z.object({
-  ...base,
-  title: z.string().trim().min(1).max(100),
-  icon: z.string().max(8),
-  color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
-  kind: z.enum(["check", "quantity"]),
-  target: z.number().positive(),
-  unit: z.string().max(30),
-  weekdays: z.array(z.number().int().min(0).max(6)).min(1),
-  startDate: dateSchema,
-  archived: z.boolean(),
-});
+export const habitSchema = z
+  .object({
+    ...base,
+    title: z.string().trim().min(1).max(100),
+    icon: z.string().max(8),
+    color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
+    kind: z.enum(["check", "quantity"]),
+    period: z.enum(["daily", "weekly"]).default("daily"),
+    target: z.number().positive(),
+    unit: z.string().max(30),
+    weekdays: z.array(z.number().int().min(0).max(6)).min(1),
+    startDate: dateSchema,
+    archived: z.boolean(),
+  })
+  .refine(
+    (h) => h.period !== "weekly" || h.kind === "quantity",
+    "Weekly habits use quantity tracking",
+  );
 export const entrySchema = z
   .object({
     id: z.string(),
@@ -37,18 +43,24 @@ const subtask = z.object({
   title: z.string().trim().min(1),
   done: z.boolean(),
 });
-export const taskSchema = z.object({
-  ...base,
-  title: z.string().trim().min(1).max(200),
-  notes: z.string(),
-  due: dateSchema.nullable(),
-  priority: z.enum(["low", "medium", "high"]),
-  projectId: z.string().nullable(),
-  done: z.boolean(),
-  completedAt: z.string().datetime().nullable(),
-  subtasks: z.array(subtask),
-  templateId: z.string().nullable(),
-});
+export const taskSchema = z
+  .object({
+    ...base,
+    title: z.string().trim().min(1).max(200),
+    notes: z.string(),
+    due: dateSchema.nullable(),
+    priority: z.enum(["low", "medium", "high"]),
+    projectId: z.string().nullable(),
+    done: z.boolean(),
+    completedAt: z.string().datetime().nullable(),
+    subtasks: z.array(subtask),
+    templateId: z.string().nullable(),
+    showDaily: z.boolean().default(false),
+  })
+  .refine(
+    (t) => !t.showDaily || !!t.due,
+    "Choose a due date for daily display",
+  );
 export const templateSchema = z.object({
   ...base,
   title: z.string().min(1),
@@ -56,6 +68,7 @@ export const templateSchema = z.object({
   priority: z.enum(["low", "medium", "high"]),
   projectId: z.string().nullable(),
   frequency: z.enum(["daily", "weekly"]),
+  retired: z.boolean().default(false),
   startDate: dateSchema,
   endDate: dateSchema.nullable(),
   subtasks: z.array(subtask),
@@ -105,7 +118,7 @@ export const settingsSchema = z.object({
 });
 export const backupSchema = z
   .object({
-    version: z.literal(1),
+    version: z.union([z.literal(1), z.literal(2)]),
     exportedAt: z.string().datetime(),
     habits: z.array(habitSchema),
     entries: z.array(entrySchema),
@@ -187,15 +200,72 @@ export function weekday(date: string) {
   return new Date(date + "T12:00:00Z").getUTCDay();
 }
 export function scheduled(h: Habit, date: string) {
-  return date >= h.startDate && h.weekdays.includes(weekday(date));
+  return (
+    date >= h.startDate &&
+    (h.period === "weekly" || h.weekdays.includes(weekday(date)))
+  );
 }
-export function completed(h: Habit, entries: Entry[], date: string) {
+export function weekStartFor(date: string, weekStart = 1) {
+  return addDays(date, -((weekday(date) - weekStart + 7) % 7));
+}
+export function weeklyTotal(
+  h: Habit,
+  entries: Entry[],
+  date: string,
+  weekStart = 1,
+) {
+  const start = weekStartFor(date, weekStart),
+    end = addDays(start, 6);
+  return entries
+    .filter(
+      (e) =>
+        e.habitId === h.id &&
+        e.date >= start &&
+        e.date >= h.startDate &&
+        e.date <= end,
+    )
+    .reduce((sum, e) => sum + e.value, 0);
+}
+export function logged(h: Habit, entries: Entry[], date: string) {
+  const value =
+    entries.find((e) => e.habitId === h.id && e.date === date)?.value || 0;
+  return h.period === "weekly" ? value > 0 : value >= h.target;
+}
+export function completed(
+  h: Habit,
+  entries: Entry[],
+  date: string,
+  weekStart = 1,
+) {
+  if (h.period === "weekly")
+    return weeklyTotal(h, entries, date, weekStart) >= h.target;
   return (
     (entries.find((e) => e.habitId === h.id && e.date === date)?.value ?? 0) >=
     h.target
   );
 }
-export function streaks(h: Habit, entries: Entry[], today: string) {
+export function streaks(
+  h: Habit,
+  entries: Entry[],
+  today: string,
+  weekStart = 1,
+) {
+  if (h.period === "weekly") {
+    let run = 0,
+      best = 0;
+    const current = weekStartFor(today, weekStart);
+    for (
+      let d = weekStartFor(h.startDate, weekStart);
+      d <= current;
+      d = addDays(d, 7)
+    ) {
+      if (weeklyTotal(h, entries, d, weekStart) >= h.target) {
+        run++;
+        best = Math.max(best, run);
+      } else if (d !== current) run = 0;
+    }
+    return { current: run, best };
+  }
   let best = 0,
     run = 0,
     current = 0;
@@ -210,6 +280,7 @@ export function streaks(h: Habit, entries: Entry[], today: string) {
   return { current, best };
 }
 export function occurrences(t: Template, through: string): Task[] {
+  if (t.retired) return [];
   return daysBetween(
     t.startDate,
     t.endDate && t.endDate < through ? t.endDate : through,
@@ -230,7 +301,37 @@ export function occurrences(t: Template, through: string): Task[] {
       completedAt: null,
       subtasks: t.subtasks.map((s) => ({ ...s, done: false })),
       templateId: t.id,
+      showDaily: false,
     }));
+}
+export function isTodayTask(t: Task, today: string) {
+  return (
+    !t.done && (t.showDaily || t.due === today || (!!t.due && t.due < today))
+  );
+}
+export function normalizeBackup(input: unknown) {
+  const b = backupSchema.parse(input);
+  for (const template of b.templates) {
+    if (template.frequency !== "daily" || template.retired) continue;
+    const copies = b.tasks
+      .filter((t) => t.templateId === template.id && !t.done)
+      .sort(
+        (a, b) =>
+          (a.due || "9999").localeCompare(b.due || "9999") ||
+          a.id.localeCompare(b.id),
+      );
+    const keep = copies[0];
+    b.tasks = b.tasks.filter((t) => t.templateId !== template.id || t.done);
+    if (keep)
+      b.tasks.push({
+        ...keep,
+        due: keep.due || template.startDate,
+        templateId: null,
+        showDaily: true,
+      });
+    template.retired = true;
+  }
+  return { ...b, version: 2 as const };
 }
 export function projectProgress(id: string, tasks: Task[], today: string) {
   const items = tasks.filter(

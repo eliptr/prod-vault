@@ -11,6 +11,7 @@ import {
   backupSchema,
   defaults,
   occurrences,
+  normalizeBackup,
 } from "./domain";
 export const db = new Dexie("productivity-vault") as Dexie & {
   habits: EntityTable<Habit, "id">;
@@ -20,6 +21,10 @@ export const db = new Dexie("productivity-vault") as Dexie & {
   projects: EntityTable<Project, "id">;
   goals: EntityTable<Goal, "id">;
   settings: EntityTable<Settings, "id">;
+  recoveries: EntityTable<
+    { id: string; createdAt: string; data: unknown },
+    "id"
+  >;
 };
 db.version(1).stores({
   habits: "id, archived",
@@ -31,6 +36,30 @@ db.version(1).stores({
   settings: "id",
 });
 db.version(2).stores({ templates: "id, projectId" });
+db.version(3)
+  .stores({ recoveries: "id, createdAt" })
+  .upgrade(async (tx) => {
+    const raw = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      habits: await tx.table("habits").toArray(),
+      entries: await tx.table("entries").toArray(),
+      tasks: await tx.table("tasks").toArray(),
+      templates: await tx.table("templates").toArray(),
+      projects: await tx.table("projects").toArray(),
+      goals: await tx.table("goals").toArray(),
+      settings: (await tx.table("settings").get("settings")) || defaults,
+    };
+    if (raw.templates.some((t) => t.frequency === "daily" && !t.retired))
+      await tx
+        .table("recoveries")
+        .add({ id: crypto.randomUUID(), createdAt: raw.exportedAt, data: raw });
+    const b = normalizeBackup(raw);
+    for (const name of ["habits", "tasks", "templates"] as const) {
+      await tx.table(name).clear();
+      await tx.table(name).bulkPut(b[name]);
+    }
+  });
 export async function snapshot(): Promise<Backup> {
   const [habits, entries, tasks, templates, projects, goals, settings] =
     await Promise.all([
@@ -43,7 +72,7 @@ export async function snapshot(): Promise<Backup> {
       db.settings.get("settings"),
     ]);
   return {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     habits,
     entries,
@@ -55,8 +84,15 @@ export async function snapshot(): Promise<Backup> {
   };
 }
 export async function restore(input: unknown) {
-  const b = backupSchema.parse(input);
+  const parsed = backupSchema.parse(input);
+  const b = normalizeBackup(parsed);
   await db.transaction("rw", db.tables, async () => {
+    if (parsed.templates.some((t) => t.frequency === "daily" && !t.retired))
+      await db.recoveries.add({
+        id: crypto.randomUUID(),
+        createdAt: new Date().toISOString(),
+        data: structuredClone(input),
+      });
     for (const name of [
       "habits",
       "entries",

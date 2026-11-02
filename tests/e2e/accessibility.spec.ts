@@ -50,7 +50,11 @@ test("accessible screens and keyboard editor", async ({ page }) => {
   }
   await page.goto("/#habits");
   await page.getByRole("button", { name: "Add habit", exact: true }).click();
-  await expect(page.getByLabel("Name", { exact: true })).toBeFocused();
+  if (test.info().project.name === "mobile")
+    await expect(
+      page.getByRole("heading", { name: "New habit", exact: true }),
+    ).toBeFocused();
+  else await expect(page.getByLabel("Name", { exact: true })).toBeFocused();
   const scan = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
     .analyze();

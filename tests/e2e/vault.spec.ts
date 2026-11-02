@@ -55,8 +55,8 @@ test("projects, linked goals, quantity history, recurrence, and deletion", async
   await page.getByLabel("Name", { exact: true }).fill("Water herbs");
   await page.getByLabel("Due date").fill(today);
   await page
-    .getByRole("combobox", { name: "Repeat", exact: true })
-    .selectOption("daily");
+    .getByRole("combobox", { name: "Schedule", exact: true })
+    .selectOption("weekly");
   await page.getByRole("button", { name: "Save task" }).click();
   await page.getByRole("button", { name: "Complete Water herbs" }).click();
   await page.getByRole("button", { name: "Upcoming", exact: true }).click();

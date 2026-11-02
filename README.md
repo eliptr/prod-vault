@@ -34,7 +34,7 @@ Browser checks run Chromium desktop, Chromium phone-sized, and WebKit desktop. R
 
 ## Vercel
 
-Import this repository in Vercel. The included `vercel.json` uses `npm run build` and serves `out`. No environment variables, database, server functions, or credentials are needed. Use one stable production address: local records belong to the browser profile and origin, so preview URLs and custom domains have separate vaults. Hosting does not back up records. This repository prepares deployment; it does not publish automatically.
+Import this repository in Vercel. The included `vercel.json` uses `npm run build` and serves `out`. No environment variables, database, server functions, or credentials are needed. Use one stable production address: local records belong to the browser profile and origin, so preview URLs and custom domains have separate vaults. Hosting does not back up records. The production Vercel project is connected to GitHub; pushes to main deploy automatically.
 
 ## Data and backups
 
@@ -42,7 +42,11 @@ Records live in IndexedDB through Dexie, with a versioned schema. Settings → E
 
 Core workflows work offline after a successful first online load and service-worker installation. Update prompts activate a waiting worker only after editors close and pending writes finish. Updates preserve IndexedDB. Date keys remain unchanged if the configured timezone changes. Daily rollover refreshes within 30 seconds. Weeks start Monday by default; timezone defaults to Europe/Athens.
 
-Habits support check-offs and quantities. Historical grids open the corresponding calendar date. Habit schedule/target edits reinterpret existing history. Archive preserves records. Task recurrence materializes dated instances through the next 90 days; missed instances stay overdue. Editing an occurrence also starts any revised recurring schedule after today, retaining past/current instances. Deleting a recurring task deletes its whole series after confirmation. Project percentages exclude future recurring occurrences. Goals can use manual values, a project percentage, or a habit total in the goal period. Deleted goal sources display “Source removed.”
+Habits support daily check-offs, daily quantities, and weekly quantity targets. Weekly entries count sessions (including multiple sessions on one day), reset their displayed total at the configured week boundary, and retain dated history. Weekly streaks count successful weeks; the current week does not break a streak before it ends. Reports separate daily completion from weekly targets.
+
+“Show daily until completed” keeps a single task visible on Today until its one completion, including after its due date. Weekly recurrence still creates dated occurrences. The v3 database upgrade combines unfinished legacy daily copies into one task using the earliest unfinished copy’s details and due date, preserves completed history, and retires old daily templates. Settings provides a downloadable pre-update recovery snapshot containing the original records. Export uses backup format v2; v1 imports receive the same conversion transactionally. Recovery snapshots stay local and are downloaded separately from regular backups.
+
+Manual goals have minus/value/plus controls on Today and Goals. Linked goals expose their source habit or project tasks without overriding calculated progress. Each project on Today expands its unfinished tasks, including future and undated tasks, and has a project-prefilled Add task action. Editors and restore use a centered, keyboard-aware dialog with a scrollable body and fixed header/actions. Browser simulation verifies its bounds; native iPhone keyboard behavior still needs physical-device confirmation.
 
 ## Release checklist
 

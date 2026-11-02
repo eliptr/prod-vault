@@ -1,5 +1,5 @@
 "use client";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   addDays,
   completed,
@@ -8,6 +8,8 @@ import {
   projectProgress,
   scheduled,
   streaks,
+  weeklyTotal,
+  logged,
   type Backup,
   type Habit,
   type Task,
@@ -15,6 +17,56 @@ import {
   type Goal,
 } from "@/lib/domain";
 
+export function ValueControl({
+  value,
+  label,
+  onSet,
+  onStep,
+}: {
+  value: number;
+  label: string;
+  onSet: (value: number) => void;
+  onStep: (delta: number) => void;
+}) {
+  const [draft, setDraft] = useState(String(value));
+  useEffect(() => setDraft(String(value)), [value]);
+  function save() {
+    const n = Number(draft);
+    if (draft.trim() && Number.isFinite(n) && n >= 0) {
+      if (n !== value) onSet(n);
+    } else setDraft(String(value));
+  }
+  return (
+    <span className="value-control">
+      <button
+        aria-label={`Decrease ${label}`}
+        disabled={value <= 0}
+        onClick={() => onStep(-1)}
+      >
+        −
+      </button>
+      <input
+        aria-label={label}
+        type="number"
+        min="0"
+        step="any"
+        inputMode="decimal"
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            e.currentTarget.blur();
+          }
+        }}
+      />
+      <button aria-label={`Increase ${label}`} onClick={() => onStep(1)}>
+        +
+      </button>
+    </span>
+  );
+}
 export function Meter({ value, label }: { value: number; label: string }) {
   const percent = Math.round(Math.max(0, Math.min(100, value)));
   return (
@@ -188,6 +240,7 @@ export function HabitRow({
   onEdit,
   onEntry,
   onDate,
+  onAdjust,
 }: {
   habit: Habit;
   data: Backup;
@@ -197,10 +250,15 @@ export function HabitRow({
   onEdit: () => void;
   onEntry: (date: string, value: number) => void;
   onDate: (date: string) => void;
+  onAdjust: (date: string, delta: number) => void;
 }) {
   const value =
     data.entries.find((e) => e.habitId === h.id && e.date === at)?.value || 0;
-  const stats = streaks(h, data.entries, today);
+  const stats = streaks(h, data.entries, today, data.settings.weekStart);
+  const weekly = h.period === "weekly";
+  const total = weekly
+    ? weeklyTotal(h, data.entries, at, data.settings.weekStart)
+    : value;
   const history = daysBetween(addDays(at, -6), at);
   return (
     <div
@@ -223,7 +281,7 @@ export function HabitRow({
           aria-label={history
             .map(
               (d) =>
-                `${d}: ${!scheduled(h, d) ? "not scheduled" : completed(h, data.entries, d) ? "complete" : "incomplete"}`,
+                `${d}: ${!scheduled(h, d) ? "not scheduled" : logged(h, data.entries, d) ? "complete" : "incomplete"}`,
             )
             .join("; ")}
         >
@@ -231,7 +289,7 @@ export function HabitRow({
             <i
               key={d}
               className={
-                completed(h, data.entries, d)
+                logged(h, data.entries, d)
                   ? "filled"
                   : !scheduled(h, d)
                     ? "unscheduled"
@@ -245,10 +303,26 @@ export function HabitRow({
           title={`Current streak ${stats.current}; best ${stats.best}`}
           aria-label={`Streak ${stats.current}, best ${stats.best}`}
         >
-          {stats.current}d
+          {stats.current}
+          {weekly ? "w" : "d"}
         </span>
         {scheduled(h, at) && at <= today && !h.archived ? (
-          h.kind === "check" ? (
+          weekly ? (
+            <span className="weekly-quantity">
+              <span className="meta">
+                {total} / {h.target} this week
+              </span>
+              <span className="meta">
+                {at === today ? "Today" : at.slice(5)}
+              </span>
+              <ValueControl
+                value={value}
+                label={`${h.title} quantity for ${at}`}
+                onSet={(v) => onEntry(at, v)}
+                onStep={(delta) => onAdjust(at, delta)}
+              />
+            </span>
+          ) : h.kind === "check" ? (
             <button
               className={"check " + (value >= h.target ? "checked" : "")}
               aria-label={`${value >= h.target ? "Reopen" : "Complete"} ${h.title}`}
@@ -285,12 +359,15 @@ export function HabitRow({
         <div className="habit-month">
           <div className="month-meta">
             <span>
-              {h.weekdays.length === 7
-                ? "Daily"
-                : h.weekdays
-                    .map((d) => ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"][d])
-                    .join(" ")}{" "}
-              · best {stats.best}d
+              {weekly
+                ? "Weekly"
+                : h.weekdays.length === 7
+                  ? "Daily"
+                  : h.weekdays
+                      .map((d) => ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"][d])
+                      .join(" ")}{" "}
+              · best {stats.best}
+              {weekly ? "w" : "d"}
             </span>
           </div>
           <div className="habit-grid">
@@ -298,8 +375,8 @@ export function HabitRow({
               <button
                 key={d}
                 disabled={!scheduled(h, d) || d > today}
-                aria-label={`${h.title} ${d}${completed(h, data.entries, d) ? " complete" : ""}`}
-                className={completed(h, data.entries, d) ? "filled" : ""}
+                aria-label={`${h.title} ${d}${logged(h, data.entries, d) ? " complete" : ""}`}
+                className={logged(h, data.entries, d) ? "filled" : ""}
                 onClick={() => onDate(d)}
               >
                 {Number(d.slice(-2))}
@@ -345,28 +422,49 @@ export function GoalRow({
   data,
   today,
   onEdit,
+  onSet,
+  onStep,
+  sourceControl,
 }: {
   goal: Goal;
+  onSet: (value: number) => void;
+  onStep: (delta: number) => void;
+  sourceControl?: ReactNode;
   data: Backup;
   today: string;
   onEdit: () => void;
 }) {
   const v = goalProgress(g, data, today);
   return (
-    <div className="progress-row">
-      <button className="record-name" onClick={onEdit}>
-        {g.title}
-        {g.archived && <span>archived</span>}
-      </button>
-      {!v.missing && (
-        <Meter value={(v.value / g.target) * 100} label={g.title} />
-      )}
-      <span className="numeric">
-        {v.missing
-          ? "Source removed"
-          : `${Math.round(v.value * 100) / 100} / ${g.target}${g.source === "project" ? "%" : ""}`}
-      </span>
-      <time className="meta">{g.deadline?.slice(5) || "—"}</time>
+    <div className="goal-record">
+      <div className="progress-row">
+        <button className="record-name" onClick={onEdit}>
+          {g.title}
+          {g.archived && <span>archived</span>}
+        </button>
+        {!v.missing && (
+          <Meter value={(v.value / g.target) * 100} label={g.title} />
+        )}
+        {g.source === "manual" && !g.archived ? (
+          <>
+            <ValueControl
+              value={g.value}
+              label={`Progress for ${g.title}`}
+              onSet={onSet}
+              onStep={onStep}
+            />
+            <span className="numeric">/ {g.target}</span>
+          </>
+        ) : (
+          <span className="numeric">
+            {v.missing
+              ? "Source removed"
+              : `${Math.round(v.value * 100) / 100} / ${g.target}${g.source === "project" ? "%" : ""}`}
+          </span>
+        )}
+        <time className="meta">{g.deadline?.slice(5) || "—"}</time>
+      </div>
+      {!v.missing && sourceControl}
     </div>
   );
 }

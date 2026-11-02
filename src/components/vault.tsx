@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import {
   Sun,
@@ -28,11 +28,14 @@ import {
   projectProgress,
   goalProgress,
   backupSchema,
+  isTodayTask,
+  weeklyTotal,
   type Backup,
   type Habit,
   type Task,
 } from "@/lib/domain";
 import Editor, { type Edit } from "./editor";
+import CenteredDialog from "./dialog";
 import {
   Empty,
   Meter,
@@ -74,7 +77,7 @@ export default function Vault() {
   const [worker, setWorker] = useState<ServiceWorker | null>(null);
   const [install, setInstall] = useState<Event | null>(null);
   const [importData, setImportData] = useState<Backup | null>(null);
-  const restoreDialog = useRef<HTMLDialogElement>(null);
+  const recoveries = useLiveQuery(() => db.recoveries.toArray(), []);
   const [pending, setPending] = useState(0);
   const settings = data?.settings || defaults;
   const today = todayIn(settings.timezone, clock);
@@ -172,9 +175,6 @@ export default function Vault() {
     addEventListener("hashchange", change);
     return () => removeEventListener("hashchange", change);
   }, []);
-  useEffect(() => {
-    if (importData) restoreDialog.current?.showModal();
-  }, [importData]);
   async function run(action: () => Promise<unknown>) {
     setPending((p) => p + 1);
     try {
@@ -202,7 +202,7 @@ export default function Vault() {
   const habits = data.habits.filter((h) => showArchive || !h.archived);
   const todayHabits = activeHabits.filter((h) => scheduled(h, today));
   const doneHabits = todayHabits.filter((h) =>
-    completed(h, data.entries, today),
+    completed(h, data.entries, today, settings.weekStart),
   ).length;
   const visibleTasks = data.tasks
     .filter((t) =>
@@ -212,15 +212,15 @@ export default function Vault() {
           (filter === "Inbox"
             ? !t.due
             : filter === "Today"
-              ? t.due === today
+              ? t.showDaily || t.due === today
               : filter === "Upcoming"
                 ? !!t.due && t.due > today
                 : !!t.due && t.due < today),
     )
     .sort((a, b) => (a.due || "").localeCompare(b.due || ""));
   const overdue = data.tasks.filter((t) => !t.done && t.due && t.due < today);
-  const dueTasks = data.tasks.filter((t) => t.due === today);
-  const newItem = (kind: Edit["kind"]) => setEdit({ kind });
+  const newItem = (kind: Edit["kind"], projectId?: string) =>
+    setEdit({ kind, projectId });
   async function entry(h: Habit, date: string, value: number) {
     await run(() =>
       db.entries.put({
@@ -229,6 +229,39 @@ export default function Vault() {
         date,
         value,
         updatedAt: new Date().toISOString(),
+      }),
+    );
+  }
+  async function adjustEntry(h: Habit, date: string, delta: number) {
+    await run(() =>
+      db.transaction("rw", db.entries, async () => {
+        const id = `${h.id}:${date}`;
+        const current = await db.entries.get(id);
+        await db.entries.put({
+          id,
+          habitId: h.id,
+          date,
+          value: Math.max(0, (current?.value || 0) + delta),
+          updatedAt: new Date().toISOString(),
+        });
+      }),
+    );
+  }
+  async function setGoal(id: string, value: number) {
+    if (Number.isFinite(value) && value >= 0)
+      await run(() =>
+        db.goals.update(id, { value, updatedAt: new Date().toISOString() }),
+      );
+  }
+  async function adjustGoal(id: string, delta: number) {
+    await run(() =>
+      db.transaction("rw", db.goals, async () => {
+        const goal = await db.goals.get(id);
+        if (goal?.source === "manual")
+          await db.goals.update(id, {
+            value: Math.max(0, goal.value + delta),
+            updatedAt: new Date().toISOString(),
+          });
       }),
     );
   }
@@ -276,6 +309,7 @@ export default function Vault() {
         month={grid ? { start: monthStart, end: monthEnd } : undefined}
         onEdit={() => setEdit({ kind: "habit", record: h })}
         onEntry={(date, value) => entry(h, date, value)}
+        onAdjust={(date, delta) => adjustEntry(h, date, delta)}
         onDate={(date) => {
           setSelected(date);
           navigate("calendar");
@@ -331,6 +365,7 @@ export default function Vault() {
             icon: "📖",
             color: "#8aa3bb",
             kind: "quantity",
+            period: "daily",
             target: 10,
             unit: "pages",
             weekdays: [0, 1, 2, 3, 4, 5, 6],
@@ -344,6 +379,7 @@ export default function Vault() {
             icon: "🌿",
             color: "#8baa93",
             kind: "check",
+            period: "daily",
             target: 1,
             unit: "",
             weekdays: [1, 2, 3, 4, 5],
@@ -357,6 +393,7 @@ export default function Vault() {
             icon: "☕",
             color: "#d5ad78",
             kind: "quantity",
+            period: "daily",
             target: 30,
             unit: "minutes",
             weekdays: [0, 1, 2, 3, 4, 5, 6],
@@ -391,6 +428,7 @@ export default function Vault() {
             completedAt: null,
             subtasks: [],
             templateId: null,
+            showDaily: false,
           })),
         );
         await db.goals.add({
@@ -432,12 +470,14 @@ export default function Vault() {
       Date.now() - Date.parse(settings.reminderDismissed) > 7 * 86400000);
   const activeProjects = data.projects.filter((p) => p.status === "active");
   const activeGoals = data.goals.filter((g) => !g.archived);
-  const todayTasks = [...overdue, ...dueTasks];
+  const todayTasks = data.tasks.filter(
+    (t) => isTodayTask(t, today) || (!t.showDaily && t.due === today),
+  );
   const projects = data.projects.filter(
     (p) => showArchive || p.status !== "archived",
   );
   const goals = data.goals.filter((g) => showArchive || !g.archived);
-  const projectRow = (p: Backup["projects"][number], details = false) => (
+  const projectRow = (p: Backup["projects"][number], details = true) => (
     <ProjectRow
       key={p.id}
       project={p}
@@ -447,14 +487,27 @@ export default function Vault() {
     >
       {details && (
         <details className="project-tasks">
-          <summary>Tasks</summary>
+          <summary aria-label={`Tasks for ${p.title}`}>
+            Tasks ·{" "}
+            {data.tasks.filter((t) => t.projectId === p.id && !t.done).length}
+          </summary>
+          <button
+            onClick={() => newItem("task", p.id)}
+            aria-label={`Add task to ${p.title}`}
+          >
+            + Add task
+          </button>
           {data.tasks
-            .filter(
-              (t) =>
-                t.projectId === p.id &&
-                (!t.templateId || (!!t.due && t.due <= today)),
-            )
+            .filter((t) => t.projectId === p.id && !t.done)
             .map(taskRow)}
+          {data.tasks.some((t) => t.projectId === p.id && t.done) && (
+            <details>
+              <summary>Completed</summary>
+              {data.tasks
+                .filter((t) => t.projectId === p.id && t.done)
+                .map(taskRow)}
+            </details>
+          )}
         </details>
       )}
     </ProjectRow>
@@ -466,6 +519,31 @@ export default function Vault() {
       data={data}
       today={today}
       onEdit={() => setEdit({ kind: "goal", record: g })}
+      onSet={(value) => setGoal(g.id, value)}
+      onStep={(delta) => adjustGoal(g.id, delta)}
+      sourceControl={
+        g.source === "habit"
+          ? (() => {
+              const h = data.habits.find((h) => h.id === g.sourceId);
+              return h ? (
+                <details className="goal-source">
+                  <summary>Log habit</summary>
+                  {habitRow(h)}
+                </details>
+              ) : null;
+            })()
+          : g.source === "project"
+            ? (() => {
+                const p = data.projects.find((p) => p.id === g.sourceId);
+                return p ? (
+                  <details className="goal-source">
+                    <summary>Project tasks</summary>
+                    {projectRow(p)}
+                  </details>
+                ) : null;
+              })()
+            : null
+      }
     />
   );
   const addKind =
@@ -477,7 +555,13 @@ export default function Vault() {
           ? "goal"
           : "task";
   return (
-    <div className="app-shell">
+    <div
+      className="app-shell"
+      onClickCapture={(event) => {
+        const button = (event.target as Element).closest("button");
+        button?.focus({ preventScroll: true });
+      }}
+    >
       <aside className="sidebar">
         <a className="brand" href="#today" onClick={() => navigate("today")}>
           Productivity Vault
@@ -577,7 +661,7 @@ export default function Vault() {
                   },
                   {
                     label: "Tasks",
-                    value: `${dueTasks.filter((t) => t.done).length}/${dueTasks.length}`,
+                    value: `${todayTasks.filter((t) => t.done).length}/${todayTasks.length}`,
                   },
                   { label: "Overdue", value: overdue.length },
                   { label: "Projects", value: activeProjects.length },
@@ -865,6 +949,25 @@ export default function Vault() {
               </section>
               <section className="panel settings-panel">
                 <h2>Backups</h2>
+                {recoveries?.map((r) => (
+                  <button
+                    key={r.id}
+                    onClick={() => {
+                      const url = URL.createObjectURL(
+                        new Blob([JSON.stringify(r.data, null, 2)], {
+                          type: "application/json",
+                        }),
+                      );
+                      const a = document.createElement("a");
+                      a.href = url;
+                      a.download = `prod-vault-recovery-${r.createdAt.slice(0, 10)}.json`;
+                      a.click();
+                      setTimeout(() => URL.revokeObjectURL(url), 1000);
+                    }}
+                  >
+                    Download pre-update backup · {r.createdAt.slice(0, 10)}
+                  </button>
+                ))}
                 <p>Device-only data. Clearing browser storage deletes it.</p>
                 <div className="button-row">
                   <button onClick={exportBackup}>Export backup</button>
@@ -967,23 +1070,11 @@ export default function Vault() {
         />
       )}
       {importData && (
-        <dialog
-          aria-label="Restore backup"
-          ref={restoreDialog}
-          className="editor"
-          onCancel={() => setImportData(null)}
-        >
-          <div className="restore-body">
-            <h2>Replace local data?</h2>
-            <p>
-              {importData.habits.length} habits, {importData.entries.length}{" "}
-              check-ins, {importData.tasks.length} tasks,{" "}
-              {importData.templates.length} templates,{" "}
-              {importData.projects.length} projects, {importData.goals.length}{" "}
-              goals.
-            </p>
-            <p>Current records will be replaced. Export first to keep them.</p>
-            <footer>
+        <CenteredDialog
+          title="Replace local data?"
+          onClose={() => setImportData(null)}
+          footer={
+            <>
               <button onClick={() => setImportData(null)}>Cancel</button>
               <button
                 className="primary"
@@ -997,9 +1088,20 @@ export default function Vault() {
               >
                 Replace local data
               </button>
-            </footer>
+            </>
+          }
+        >
+          <div className="restore-body">
+            <p>
+              {importData.habits.length} habits, {importData.entries.length}{" "}
+              check-ins, {importData.tasks.length} tasks,{" "}
+              {importData.templates.length} templates,{" "}
+              {importData.projects.length} projects, {importData.goals.length}{" "}
+              goals.
+            </p>
+            <p>Current records will be replaced. Export first to keep them.</p>
           </div>
-        </dialog>
+        </CenteredDialog>
       )}
     </div>
   );
@@ -1048,7 +1150,12 @@ function Reports({
       ? today.slice(0, 7) + "-01"
       : addDays(today, -((weekday(today) - data.settings.weekStart + 7) % 7));
   const dates = daysBetween(start, today);
-  const habits = data.habits.filter((h) => !h.archived);
+  const weeklyHabits = data.habits.filter(
+    (h) => !h.archived && h.period === "weekly",
+  );
+  const habits = data.habits.filter(
+    (h) => !h.archived && h.period !== "weekly",
+  );
   const scheduledCount = habits.reduce(
     (n, h) => n + dates.filter((d) => scheduled(h, d)).length,
     0,
@@ -1065,7 +1172,7 @@ function Reports({
       <Summary
         items={[
           {
-            label: "Habits",
+            label: "Daily habits",
             value: `${scheduledCount ? Math.round((count / scheduledCount) * 100) : 0}% (${count}/${scheduledCount})`,
           },
           {
@@ -1131,6 +1238,31 @@ function Reports({
           </ul>
         </details>
       </section>
+      {weeklyHabits.length > 0 && (
+        <section className="panel report-panel">
+          <h2>Weekly targets</h2>
+          {weeklyHabits.map((h) => {
+            const stats = streaks(
+              h,
+              data.entries,
+              today,
+              data.settings.weekStart,
+            );
+            return (
+              <div className="insight" key={h.id}>
+                <strong>{h.title}</strong>
+                <span>
+                  {weeklyTotal(h, data.entries, today, data.settings.weekStart)}{" "}
+                  / {h.target} {h.unit} this week
+                </span>
+                <span>
+                  Current: {stats.current}w · Best: {stats.best}w
+                </span>
+              </div>
+            );
+          })}
+        </section>
+      )}
       <section className="panel report-panel">
         <h2>Habit insights</h2>
         {habits.length ? (

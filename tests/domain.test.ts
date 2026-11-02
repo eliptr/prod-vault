@@ -11,6 +11,10 @@ import {
   goalProgress,
   backupSchema,
   defaults,
+  weeklyTotal,
+  weekStartFor,
+  isTodayTask,
+  normalizeBackup,
   type Habit,
   type Template,
   type Backup,
@@ -24,6 +28,7 @@ const habit: Habit = {
   icon: "✦",
   color: "#123456",
   kind: "quantity",
+  period: "daily",
   unit: "pages",
   target: 10,
   weekdays: [1, 2, 3, 4, 5],
@@ -88,6 +93,7 @@ const template: Template = {
   priority: "low",
   projectId: "p",
   frequency: "daily",
+  retired: false,
   startDate: "2026-10-26",
   endDate: null,
   subtasks: [],
@@ -158,7 +164,7 @@ test("goal progress uses date range, manual totals, and missing sources", () => 
 test("backup rejects invalid dates, duplicate entries, bad timezone, and dangling references", () => {
   assert.equal(backupSchema.safeParse(backup).success, true);
   assert.equal(
-    backupSchema.safeParse({ ...backup, version: 2 }).success,
+    backupSchema.safeParse({ ...backup, version: 3 }).success,
     false,
   );
   assert.equal(
@@ -188,4 +194,104 @@ test("backup rejects invalid dates, duplicate entries, bad timezone, and danglin
     }).success,
     false,
   );
+});
+test("weekly targets sum sessions, cross DST, and respect week starts", () => {
+  const h = {
+    ...habit,
+    period: "weekly" as const,
+    target: 3,
+    startDate: "2026-10-19",
+  };
+  const entries = [
+    entry("2026-10-24", 2),
+    entry("2026-10-25", 1),
+    entry("2026-10-26", 1),
+  ];
+  assert.equal(weeklyTotal(h, entries, "2026-10-25", 1), 3);
+  assert.equal(weeklyTotal(h, entries, "2026-10-26", 1), 1);
+  assert.equal(weeklyTotal(h, entries, "2026-10-26", 0), 2);
+  assert.equal(weekStartFor("2026-10-25", 1), "2026-10-19");
+  assert.deepEqual(streaks(h, entries, "2026-10-28", 1), {
+    current: 1,
+    best: 1,
+  });
+  assert.deepEqual(streaks(h, entries, "2026-11-02", 1), {
+    current: 0,
+    best: 1,
+  });
+  assert.equal(completed(h, entries, "2026-10-25", 1), true);
+  assert.equal(
+    completed(
+      h,
+      entries.filter((e) => e.date !== "2026-10-25"),
+      "2026-10-25",
+      1,
+    ),
+    false,
+  );
+  assert.equal(
+    goalProgress(
+      {
+        ...backup.goals[0],
+        id: "g",
+        createdAt: stamp,
+        updatedAt: stamp,
+        title: "Sessions",
+        source: "habit",
+        sourceId: h.id,
+        target: 10,
+        value: 0,
+        startDate: h.startDate,
+        deadline: null,
+        archived: false,
+      },
+      { ...backup, habits: [h], entries },
+      "2026-10-26",
+    ).value,
+    4,
+  );
+});
+test("daily display has a single completion before, on, and after its deadline", () => {
+  const t = {
+    ...occurrences(template, "2026-10-26")[0],
+    templateId: null,
+    showDaily: true,
+    due: "2026-11-01",
+  };
+  for (const day of ["2026-10-26", "2026-11-01", "2026-11-05"])
+    assert.equal(isTodayTask(t, day), true);
+  assert.equal(isTodayTask({ ...t, done: true }, "2026-11-05"), false);
+  assert.equal(isTodayTask({ ...t, showDaily: false }, "2026-10-26"), false);
+});
+test("normalization combines unfinished copies without mutating the input", () => {
+  const tasks = occurrences(template, "2026-10-28");
+  tasks[0].done = true;
+  tasks[0].completedAt = stamp;
+  tasks[1].notes = "Keep my note";
+  const input = {
+    ...backup,
+    tasks,
+    templates: [template],
+    projects: [
+      {
+        id: "p",
+        createdAt: stamp,
+        updatedAt: stamp,
+        title: "P",
+        description: "",
+        color: "#123456",
+        deadline: null,
+        status: "active" as const,
+      },
+    ],
+  };
+  const b = normalizeBackup(input);
+  assert.equal(b.version, 2);
+  assert.equal(b.tasks.length, 2);
+  assert.equal(input.tasks.length, 3);
+  assert.equal(b.tasks.find((t) => t.showDaily)?.id, tasks[1].id);
+  assert.equal(b.tasks.find((t) => t.showDaily)?.notes, "Keep my note");
+  assert.equal(b.tasks.find((t) => t.done)?.completedAt, stamp);
+  assert.equal(b.templates[0].retired, true);
+  assert.deepEqual(normalizeBackup(b), b);
 });

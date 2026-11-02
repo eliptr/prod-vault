@@ -674,39 +674,6 @@ main {
 :root[data-theme="dark"] .error {
   color: #e6a69d;
 }
-.editor {
-  width: min(440px, calc(100% - 16px));
-  max-height: 90dvh;
-  overflow: auto;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: var(--surface);
-  color: var(--text);
-  padding: 0;
-  margin: auto;
-}
-.editor::backdrop {
-  background: #0006;
-}
-.editor form {
-  padding: 12px;
-  display: grid;
-  gap: 8px;
-}
-.editor header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
-.editor h2 {
-  font-size: 14px;
-}
-.editor header button {
-  min-height: 32px;
-  width: 32px;
-  padding: 0;
-}
 .form-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -751,19 +718,6 @@ legend {
 .weekdays input:focus-visible + span {
   outline: 2px solid var(--green);
   outline-offset: 2px;
-}
-.editor footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 6px;
-  flex-wrap: wrap;
-  padding-top: 4px;
-}
-.editor footer button {
-  min-height: 32px;
-}
-.editor footer .primary {
-  margin-left: auto;
 }
 .danger {
   color: #a0392e;
@@ -975,25 +929,10 @@ summary {
     color: var(--green);
     background: var(--soft);
   }
-  .editor {
-    width: 100%;
-    max-height: 94dvh;
-    margin: auto 0 0;
-    border-radius: 4px 4px 0 0;
-  }
-  .editor form {
-    padding: 12px 8px calc(12px + env(safe-area-inset-bottom));
-  }
-  .editor input,
-  .editor select,
-  .editor textarea {
+  .dialog-card input,
+  .dialog-card select,
+  .dialog-card textarea {
     font-size: 16px;
-  }
-  .editor footer {
-    position: sticky;
-    bottom: 0;
-    background: var(--surface);
-    padding: 4px 0;
   }
   .insight {
     flex-wrap: wrap;
@@ -1020,5 +959,142 @@ summary {
     animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;
+  }
+}
+
+.dialog-shell {
+  position: fixed;
+  inset: auto;
+  top: var(--visual-top, 0px);
+  left: var(--visual-left, 0px);
+  width: var(--visual-width, 100vw);
+  height: var(--visual-height, 100dvh);
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: max(8px, env(safe-area-inset-top, 0px))
+    max(8px, env(safe-area-inset-right, 0px))
+    max(8px, env(safe-area-inset-bottom, 0px))
+    max(8px, env(safe-area-inset-left, 0px));
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  overflow: hidden;
+}
+.dialog-shell[open] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dialog-shell::backdrop {
+  background: #0007;
+}
+.dialog-card {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 440px;
+  max-height: 100%;
+  min-height: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--line);
+}
+.dialog-header h2 {
+  font-size: 14px;
+}
+.dialog-header button {
+  width: 32px;
+  min-height: 32px;
+}
+.dialog-body {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scroll-padding: 8px;
+}
+.editor-form {
+  display: grid;
+  gap: 8px;
+  padding: 8px;
+}
+.dialog-footer {
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  flex-shrink: 0;
+  border-top: 1px solid var(--line);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.dialog-footer button {
+  min-height: 32px;
+}
+.dialog-footer .primary {
+  margin-left: auto;
+}
+.goal-record + .goal-record {
+  border-top: 1px solid var(--line);
+}
+.goal-source {
+  padding: 0 8px 4px;
+}
+.value-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+}
+.value-control button {
+  padding: 0;
+  width: 24px;
+  min-height: 32px;
+}
+.value-control input {
+  width: 46px;
+  min-height: 28px;
+  padding: 2px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.weekly-quantity {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.weekly-quantity > .meta {
+  font-size: 10px;
+}
+@media (max-width: 760px) {
+  .habit-row:has(.weekly-quantity) {
+    flex-wrap: wrap;
+  }
+  .habit-row:has(.weekly-quantity) > .record-name {
+    min-width: 100px;
+  }
+  .weekly-quantity {
+    margin-left: auto;
+  }
+  .goal-record .progress-row {
+    flex-wrap: wrap;
+  }
+  .goal-record .record-name {
+    min-width: 80px;
+  }
+  .goal-record .value-control input {
+    width: 42px;
+    min-height: 32px;
   }
 }
