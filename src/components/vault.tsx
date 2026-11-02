@@ -321,6 +321,7 @@ export default function Vault() {
       <TaskRow
         key={t.id}
         task={t}
+        showPriority={page !== "today"}
         project={data!.projects.find((p) => p.id === t.projectId)?.title}
         today={today}
         onEdit={() => setEdit({ kind: "task", record: t })}
@@ -565,24 +566,18 @@ export default function Vault() {
         g.source === "habit"
           ? (() => {
               const h = data.habits.find((h) => h.id === g.sourceId);
-              return h ? (
-                <details className="goal-source">
-                  <summary>Log habit</summary>
-                  {habitRow(h)}
-                </details>
-              ) : null;
+              return h
+                ? { label: "Log habit", content: habitRow(h) }
+                : undefined;
             })()
           : g.source === "project"
             ? (() => {
                 const p = data.projects.find((p) => p.id === g.sourceId);
-                return p ? (
-                  <details className="goal-source">
-                    <summary>Project tasks</summary>
-                    {projectRow(p)}
-                  </details>
-                ) : null;
+                return p
+                  ? { label: "Project tasks", content: projectRow(p) }
+                  : undefined;
               })()
-            : null
+            : undefined
       }
     />
   );

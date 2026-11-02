@@ -210,6 +210,7 @@ export function TaskRow({
   onEdit,
   onToggle,
   onSubtask,
+  showPriority = true,
 }: {
   task: Task;
   project?: string;
@@ -217,6 +218,7 @@ export function TaskRow({
   onEdit: () => void;
   onToggle: () => void;
   onSubtask: (id: string) => void;
+  showPriority?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const detailsId = useId();
@@ -248,9 +250,11 @@ export function TaskRow({
           <div className="task-meta">
             {t.templateId && <span>Repeating</span>}
             {project && <span>{project}</span>}
-            <span className="priority" title={`Priority: ${t.priority}`}>
-              {t.priority}
-            </span>
+            {showPriority && (
+              <span className="priority" title={`Priority: ${t.priority}`}>
+                {t.priority}
+              </span>
+            )}
             {t.showDaily && <span>Daily</span>}
             {t.due &&
               (t.due === today ? (
@@ -325,6 +329,7 @@ export function HabitRow({
   const value = valueAt(at);
   const stats = streaks(h, data.entries, today, data.settings.weekStart);
   const weekly = h.period === "weekly";
+  const inlineCheck = !!month && (weekly || h.kind === "check");
   const total = weekly
     ? weeklyTotal(h, data.entries, at, data.settings.weekStart)
     : value;
@@ -373,7 +378,13 @@ export function HabitRow({
     );
   }
   return (
-    <div className={"habit-record" + (month ? " has-month" : "")}>
+    <div
+      className={
+        "habit-record" +
+        (month ? " has-month" : "") +
+        (inlineCheck ? " inline-check" : "")
+      }
+    >
       <div className="habit-row">
         <div className="habit-identity">
           <RecordName onClick={onEdit} icon={h.icon}>
@@ -384,7 +395,7 @@ export function HabitRow({
             {h.kind !== "check" && (
               <span className={weekly ? "weekly-progress" : ""}>
                 {weekly
-                  ? `${total} / ${h.target} this week`
+                  ? `${total} / ${h.target}${month ? "" : " this week"}`
                   : `${value} / ${h.target} ${h.unit}`}
               </span>
             )}
@@ -418,22 +429,26 @@ export function HabitRow({
               title={`Current streak ${stats.current}; best ${stats.best}`}
               aria-label={`Streak ${stats.current}, best ${stats.best}`}
             >
-              {month ? "Streak " : ""}
-              {stats.current}
-              {weekly ? "w" : "d"}
-              {month ? ` · Best ${stats.best}${weekly ? "w" : "d"}` : ""}
+              {month
+                ? `Streak ${stats.current} / ${stats.best}${weekly ? "w" : "d"}`
+                : `${stats.current}${weekly ? "w" : "d"}`}
             </span>
+            {inlineCheck && <div className="habit-control">{controls(at)}</div>}
           </div>
           {weekly &&
             (!Number.isInteger(h.target) || h.target < 1 || h.target > 7) && (
               <span className="field-error">Set target to 1–7 days</span>
             )}
         </div>
-        <div
-          className={weekly ? "habit-control weekly-quantity" : "habit-control"}
-        >
-          {controls(at)}
-        </div>
+        {!inlineCheck && (
+          <div
+            className={
+              weekly ? "habit-control weekly-quantity" : "habit-control"
+            }
+          >
+            {controls(at)}
+          </div>
+        )}
       </div>
       {month && (
         <HabitHeatmap
@@ -496,11 +511,13 @@ export function GoalRow({
   goal: Goal;
   onSet: (value: number) => void;
   onStep: (delta: number) => void;
-  sourceControl?: ReactNode;
+  sourceControl?: { label: string; content: ReactNode };
   data: Backup;
   today: string;
   onEdit: () => void;
 }) {
+  const [sourceExpanded, setSourceExpanded] = useState(false);
+  const sourceId = useId();
   const v = goalProgress(g, data, today);
   return (
     <div className="goal-record">
@@ -519,27 +536,48 @@ export function GoalRow({
             </span>
           </div>
         </div>
-        <div className="goal-value">
-          {g.source === "manual" && !g.archived ? (
-            <ValueControl
-              value={g.value}
-              label={`Progress for ${g.title}`}
-              onSet={onSet}
-              onStep={onStep}
-            />
-          ) : (
-            <span className="numeric">
-              {v.missing
-                ? "Source removed"
-                : `${Math.round(v.value * 100) / 100} / ${g.target}${g.source === "project" ? "%" : ""}`}
-            </span>
+        <div className="goal-actions">
+          {!v.missing && sourceControl && (
+            <button
+              className="goal-source-toggle"
+              aria-expanded={sourceExpanded}
+              aria-controls={sourceId}
+              onClick={() => setSourceExpanded(!sourceExpanded)}
+            >
+              <ChevronDown
+                size={12}
+                className={sourceExpanded ? "rotated" : ""}
+                aria-hidden="true"
+              />
+              {sourceControl.label}
+            </button>
           )}
-          {!v.missing && (
-            <Meter value={(v.value / g.target) * 100} label={g.title} />
-          )}
+          <div className="goal-value">
+            {g.source === "manual" && !g.archived ? (
+              <ValueControl
+                value={g.value}
+                label={`Progress for ${g.title}`}
+                onSet={onSet}
+                onStep={onStep}
+              />
+            ) : (
+              <span className="numeric">
+                {v.missing
+                  ? "Source removed"
+                  : `${Math.round(v.value * 100) / 100} / ${g.target}${g.source === "project" ? "%" : ""}`}
+              </span>
+            )}
+            {!v.missing && (
+              <Meter value={(v.value / g.target) * 100} label={g.title} />
+            )}
+          </div>
         </div>
       </div>
-      {!v.missing && sourceControl}
+      {!v.missing && sourceControl && (
+        <div className="goal-source" id={sourceId} hidden={!sourceExpanded}>
+          {sourceControl.content}
+        </div>
+      )}
     </div>
   );
 }

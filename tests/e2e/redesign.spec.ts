@@ -110,9 +110,7 @@ test("thumb add and inline historical edits work offline", async ({
     entry.getByRole("button", { name: "Reopen Gym sessions", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
   await page.reload();
-  await expect(
-    page.getByText("1 / 3 this week", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("1 / 3", { exact: true })).toBeVisible();
   await context.setOffline(false);
 });
 

@@ -750,8 +750,7 @@ main {
 .goal-source {
   padding: 0 12px 4px;
 }
-.project-tasks > summary,
-.goal-source > summary {
+.project-tasks > summary {
   width: fit-content;
 }
 .project-tasks > button {
@@ -1416,8 +1415,7 @@ legend {
   .goal-source {
     padding-inline: 6px;
   }
-  .project-tasks > summary,
-  .goal-source > summary {
+  .project-tasks > summary {
     min-height: 44px;
     padding-block: 12px;
   }
@@ -1661,7 +1659,7 @@ legend {
   }
   .today-content .overview {
     column-gap: 8px;
-    grid-template-areas: "habits goals" "tasks tasks" "projects projects";
+    grid-template-areas: "habits goals" "tasks projects";
   }
   .today-content :is(.section-habits, .section-goals) .habit-row {
     display: grid;
@@ -1701,11 +1699,11 @@ legend {
 }
 
 @media (max-width: 760px) {
-  .today-content :is(.section-habits, .section-goals) > .section-title {
+  .today-content .overview > .section > .section-title {
     flex-wrap: wrap;
     gap: 0;
   }
-  .today-content :is(.section-habits, .section-goals) .empty {
+  .today-content .overview > .section .empty {
     flex-direction: column;
     align-items: flex-start;
     padding-inline: 4px;
@@ -1732,4 +1730,79 @@ legend {
 .habit-list .habit-grid button {
   justify-self: center;
   align-self: center;
+}
+
+.habit-list .habit-meta {
+  font-size: 0.6875rem;
+  gap: 4px;
+}
+.habit-list .streak {
+  font-size: inherit;
+}
+.habit-list .inline-check .habit-meta {
+  flex-wrap: nowrap;
+}
+.habit-list .inline-check .streak {
+  white-space: nowrap;
+}
+.habit-list .habit-meta .habit-control {
+  margin-left: auto;
+}
+.habit-list .habit-meta .check {
+  width: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  height: 28px;
+}
+.goal-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 8px;
+}
+.goal-actions > .goal-value {
+  margin-left: auto;
+}
+.goal-source-toggle {
+  font-size: 0.6875rem;
+  gap: 3px;
+  padding: 0;
+  min-width: 24px;
+  min-height: 32px;
+  color: var(--green);
+}
+@media (max-width: 760px) {
+  .today-content .section-goals .goal-actions {
+    width: 100%;
+    gap: 4px;
+  }
+  .today-content
+    :is(.section-tasks, .section-projects, .section-goals)
+    .task-main {
+    display: grid;
+    grid-template-columns: 44px minmax(0, 1fr);
+    align-items: start;
+    gap: 0;
+    padding-inline: 0;
+  }
+  .today-content
+    :is(.section-tasks, .section-projects, .section-goals)
+    .task-main
+    > .expand {
+    grid-column: 2;
+    justify-self: start;
+    min-height: 28px;
+    flex-direction: row;
+  }
+  .today-content
+    :is(.section-tasks, .section-projects, .section-goals)
+    .task-meta
+    > span {
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+  .today-content :is(.section-projects, .section-goals) .project-tasks {
+    padding-inline: 4px;
+  }
 }

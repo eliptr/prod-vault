@@ -102,9 +102,7 @@ test("weekly days, historical corrections, goals and backups agree without rewri
     .locator(".history-editor")
     .getByRole("button", { name: "Reopen Gym", exact: true })
     .click();
-  await expect(
-    page.getByText("1 / 4 this week", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("1 / 4", { exact: true })).toBeVisible();
   await expect(grid.locator('[data-date="2026-11-02"]')).toHaveAttribute(
     "data-level",
     "3",
@@ -118,6 +116,9 @@ test("weekly days, historical corrections, goals and backups agree without rewri
   await expect(page.locator("main .section h2").first()).toHaveText("Tasks");
   await expect(page.locator("main .section h2").last()).toContainText("Habits");
   await page.getByRole("button", { name: "Complete Gym", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Reopen Gym", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   await page.reload();
   await expect(
     page.getByRole("button", { name: "Reopen Gym", exact: true }),
@@ -167,9 +168,7 @@ test("weekly target validation accepts new day targets and flags legacy targets"
   );
   await page.getByLabel("Weekly target").fill("4");
   await page.getByRole("button", { name: "Save habit", exact: true }).click();
-  await expect(
-    page.getByText("2 / 4 this week", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("2 / 4", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Add habit", exact: true }).click();
   await page.getByLabel("Tracking").selectOption("weekly");
   await expect(page.getByLabel("Weekly target")).toHaveValue("3");
@@ -261,7 +260,12 @@ test("compact controls, icon-only add and phone header removal retain creation a
           .locator(".habit-control")
           .boundingBox();
         const grid = await records.nth(1).locator(".habit-grid").boundingBox();
-        expect(grid!.y - check!.y - check!.height).toBeLessThanOrEqual(4);
+        const streak = await records.nth(1).locator(".streak").boundingBox();
+        expect(
+          Math.abs(
+            check!.y + check!.height / 2 - streak!.y - streak!.height / 2,
+          ),
+        ).toBeLessThan(2);
         expect(grid!.y).toBeGreaterThanOrEqual(check!.y + check!.height);
       }
       await page
@@ -284,6 +288,39 @@ test("compact controls, icon-only add and phone header removal retain creation a
     expect(habitSection!.x + habitSection!.width).toBeLessThanOrEqual(
       goalSection!.x,
     );
+    const taskSection = await page
+      .locator(".overview > .section-tasks")
+      .boundingBox();
+    const projectSection = await page
+      .locator(".overview > .section-projects")
+      .boundingBox();
+    expect(Math.abs(taskSection!.y - projectSection!.y)).toBeLessThan(2);
+    expect(taskSection!.x + taskSection!.width).toBeLessThanOrEqual(
+      projectSection!.x,
+    );
+    await expect(page.locator(".today-content .priority")).toHaveCount(0);
+    const sourceButton = page
+      .locator(".section-goals .goal-source-toggle")
+      .first();
+    const sourceBox = await sourceButton.boundingBox();
+    const progressBox = await page
+      .locator(".section-goals .goal-value")
+      .first()
+      .boundingBox();
+    expect(
+      Math.abs(
+        sourceBox!.y +
+          sourceBox!.height / 2 -
+          progressBox!.y -
+          progressBox!.height / 2,
+      ),
+    ).toBeLessThan(2);
+    await sourceButton.click();
+    await expect(sourceButton).toHaveAttribute("aria-expanded", "true");
+    await expect(
+      page.locator(".section-goals .goal-source input").first(),
+    ).toBeVisible();
+    await sourceButton.click();
     const expected = width === 390 ? 28 : 24;
     for (const control of await page.locator(".value-control button").all()) {
       const rect = await control.boundingBox();

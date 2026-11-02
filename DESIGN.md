@@ -18,4 +18,6 @@ Habits use a flat monthly contribution view: weekday columns, week rows, neutral
 
 Habit heatmaps sit below the habit heading and controls, with weeks progressing downward. Habits page heading and month/archive toolbar have no extra margin between them.
 
-Habits use two columns, with each current-day control directly above its heatmap and no visible Today caption. At widths below 360px the history list reflows to one column to retain 24px date targets. Today places Habits and Goals side by side on phones and desktops; phone Tasks and Projects each span the full width below them.
+Habits use two columns, with each current-day control directly above its heatmap and no visible Today caption. At widths below 360px the history list reflows to one column to retain 24px date targets. Today places Habits and Goals side by side on phones and desktops; Tasks and Projects share the second row, including on phones.
+
+Habit checks share the compact helper line with weekly progress and current/best streaks; monthly weekly progress omits the “this week” suffix. Today goal source actions align with progress values and bars. Today task rows omit priority labels while preserving priority in the Tasks screen, Calendar and editors.
