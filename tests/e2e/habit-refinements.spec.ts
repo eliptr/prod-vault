@@ -188,11 +188,17 @@ test("monthly heatmaps support keyboard movement, selection and week starts", as
     exact: true,
   });
   await expect(grid.locator("button")).toHaveCount(31);
+  const gridBox = await grid.boundingBox();
+  const rowBox = await page.locator(".has-month > .habit-row").boundingBox();
+  expect(gridBox!.y).toBeGreaterThanOrEqual(rowBox!.y + rowBox!.height);
+  expect(gridBox!.width).toBe(168);
+  expect(gridBox!.height).toBeLessThanOrEqual(158);
+
   await grid.locator('[tabindex="0"]').focus();
   await page.keyboard.press("Home");
   await expect(grid.locator('[data-date="2026-10-01"]')).toBeFocused();
   await page.keyboard.press("ArrowRight");
-  await expect(grid.locator('[data-date="2026-10-08"]')).toBeFocused();
+  await expect(grid.locator('[data-date="2026-10-02"]')).toBeFocused();
   await page.keyboard.press("ArrowDown");
   await expect(grid.locator('[data-date="2026-10-09"]')).toBeFocused();
   await page.keyboard.press("Enter");

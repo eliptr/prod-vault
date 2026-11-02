@@ -657,7 +657,16 @@ export default function Vault() {
         </nav>
       </aside>
       <main id="main-content" tabIndex={-1}>
-        <div className={"content" + (page === "today" ? " today-content" : "")}>
+        <div
+          className={
+            "content" +
+            (page === "today"
+              ? " today-content"
+              : page === "habits"
+                ? " habits-content"
+                : "")
+          }
+        >
           <header className="section-heading">
             <h1>{titles[page] || "Today"}</h1>
             {page === "today" && (

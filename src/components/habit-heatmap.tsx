@@ -56,10 +56,10 @@ export default function HabitHeatmap({
   }
   function move(event: KeyboardEvent<HTMLButtonElement>, date: string) {
     const steps: Record<string, number> = {
-      ArrowRight: 7,
-      ArrowLeft: -7,
-      ArrowUp: -1,
-      ArrowDown: 1,
+      ArrowRight: 1,
+      ArrowLeft: -1,
+      ArrowUp: -7,
+      ArrowDown: 7,
     };
     if (event.key === "Home" || event.key === "End") {
       event.preventDefault();
@@ -88,7 +88,7 @@ export default function HabitHeatmap({
         aria-describedby={helpId}
       >
         <span id={helpId} className="sr-only">
-          Arrow keys move by day vertically and week horizontally. Home and End
+          Arrow keys move by day horizontally and week vertically. Home and End
           select the first and last available day. Activate a date to edit it.
         </span>
         {Array.from({ length: 7 }, (_, i) => (
