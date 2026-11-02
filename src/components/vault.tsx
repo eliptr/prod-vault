@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLiveQuery } from "dexie-react-hooks";
 import {
   Sun,
@@ -14,6 +14,8 @@ import {
   BarChart3,
   Settings as SettingsIcon,
   WifiOff,
+  Plus,
+  X,
 } from "lucide-react";
 import { db, snapshot, materialize, restore } from "@/lib/db";
 import {
@@ -22,23 +24,20 @@ import {
   weekday,
   scheduled,
   completed,
-  streaks,
   defaults,
   todayIn,
-  projectProgress,
-  goalProgress,
   backupSchema,
   isTodayTask,
-  weeklyTotal,
   type Backup,
   type Habit,
   type Task,
 } from "@/lib/domain";
 import Editor, { type Edit } from "./editor";
 import CenteredDialog from "./dialog";
+import useWorkspaceView from "./use-workspace-view";
+import Reports from "./reports";
 import {
   Empty,
-  Meter,
   Section,
   Summary,
   TaskRow,
@@ -64,15 +63,27 @@ const titles: Record<string, string> = Object.fromEntries(
 );
 export default function Vault() {
   const data = useLiveQuery(snapshot, []);
-  const [page, setPage] = useState("today");
+  const {
+    page,
+    selected,
+    month,
+    filter,
+    showArchive,
+    period,
+    update,
+    hrefFor,
+  } = useWorkspaceView();
+  const setSelected = (selected: string) => update({ selected });
+  const setMonth = (month: string) => update({ month });
+  const setFilter = (filter: string) => update({ filter });
+  const setShowArchive = (showArchive: boolean) => update({ showArchive });
+  const setPeriod = (period: string) => update({ period });
   const [edit, setEdit] = useState<Edit | null>(null);
   const [error, setError] = useState("");
+  const [status, setStatus] = useState("");
+  const [quickAdd, setQuickAdd] = useState(false);
+  const quickRef = useRef<HTMLDivElement>(null);
   const [clock, setClock] = useState(new Date());
-  const [selected, setSelected] = useState("");
-  const [month, setMonth] = useState("");
-  const [filter, setFilter] = useState("Today");
-  const [showArchive, setShowArchive] = useState(false);
-  const [period, setPeriod] = useState("week");
   const [online, setOnline] = useState(true);
   const [worker, setWorker] = useState<ServiceWorker | null>(null);
   const [install, setInstall] = useState<Event | null>(null);
@@ -169,16 +180,29 @@ export default function Vault() {
     data?.templates.map((t) => t.updatedAt + t.id).join(","),
   ]);
   useEffect(() => {
-    const hash = location.hash.slice(1);
-    if ([...navigation, ...extra].some((n) => n.id === hash)) setPage(hash);
-    const change = () => setPage(location.hash.slice(1) || "today");
-    addEventListener("hashchange", change);
-    return () => removeEventListener("hashchange", change);
-  }, []);
-  async function run(action: () => Promise<unknown>) {
+    if (!status) return;
+    const timer = setTimeout(() => setStatus(""), 2400);
+    return () => clearTimeout(timer);
+  }, [status]);
+  useEffect(() => {
+    if (!quickAdd) return;
+    quickRef.current
+      ?.querySelector<HTMLButtonElement>(".quick-menu button")
+      ?.focus();
+    const outside = (event: PointerEvent) => {
+      if (!quickRef.current?.contains(event.target as Node)) setQuickAdd(false);
+    };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [quickAdd]);
+  async function run(
+    action: () => Promise<unknown>,
+    success = "Saved on this device",
+  ) {
     setPending((p) => p + 1);
     try {
       await action();
+      setStatus(success);
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Could not save. Please retry.",
@@ -188,14 +212,28 @@ export default function Vault() {
     }
   }
   function navigate(id: string) {
-    setPage(id);
-    location.hash = id;
+    update({ page: id }, true);
+    setQuickAdd(false);
     window.scrollTo({ top: 0 });
   }
   if (!data)
     return (
-      <div className="loading">
-        <h1>Loading…</h1>
+      <div
+        className="loading"
+        role="status"
+        aria-label="Loading vault"
+        aria-busy="true"
+      >
+        <h1>Productivity Vault</h1>
+        <div className="loading-grid" aria-hidden="true">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i}>
+              {[0, 1, 2].map((n) => (
+                <div className="skeleton-row" key={n} />
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
     );
   const activeHabits = data.habits.filter((h) => !h.archived);
@@ -219,8 +257,10 @@ export default function Vault() {
     )
     .sort((a, b) => (a.due || "").localeCompare(b.due || ""));
   const overdue = data.tasks.filter((t) => !t.done && t.due && t.due < today);
-  const newItem = (kind: Edit["kind"], projectId?: string) =>
-    setEdit({ kind, projectId });
+  const newItem = (kind: Edit["kind"], projectId?: string) => {
+    setQuickAdd(false);
+    setEdit({ kind, projectId, due: page === "calendar" ? day : undefined });
+  };
   async function entry(h: Habit, date: string, value: number) {
     await run(() =>
       db.entries.put({
@@ -339,6 +379,7 @@ export default function Vault() {
       if (file.size > 20 * 1024 * 1024)
         throw new Error("Backup exceeds 20 MB.");
       setImportData(backupSchema.parse(JSON.parse(await file.text())));
+      setError("");
     } catch {
       setError(
         "Invalid backup. Choose a valid Productivity Vault JSON export. Your current data has not changed.",
@@ -559,28 +600,64 @@ export default function Vault() {
       className="app-shell"
       onClickCapture={(event) => {
         const button = (event.target as Element).closest("button");
-        button?.focus({ preventScroll: true });
+        if (button && !event.currentTarget.querySelector("dialog[open]"))
+          button.focus({ preventScroll: true });
       }}
     >
+      <a
+        className="skip-link"
+        href="#main-content"
+        onClick={(event) => {
+          event.preventDefault();
+          document.getElementById("main-content")?.focus();
+        }}
+      >
+        Skip to content
+      </a>
       <aside className="sidebar">
-        <a className="brand" href="#today" onClick={() => navigate("today")}>
+        <a
+          className="brand"
+          href={hrefFor("today")}
+          onClick={(event) => {
+            if (
+              event.metaKey ||
+              event.ctrlKey ||
+              event.shiftKey ||
+              event.altKey
+            )
+              return;
+            event.preventDefault();
+            navigate("today");
+          }}
+        >
           Productivity Vault
         </a>
         <nav aria-label="Workspace">
           {[...navigation.filter((n) => n.id !== "more"), ...extra].map((n) => (
-            <button
+            <a
               key={n.id}
+              href={hrefFor(n.id)}
               className={page === n.id ? "active" : ""}
               aria-current={page === n.id ? "page" : undefined}
-              onClick={() => navigate(n.id)}
+              onClick={(event) => {
+                if (
+                  !event.metaKey &&
+                  !event.ctrlKey &&
+                  !event.shiftKey &&
+                  !event.altKey
+                ) {
+                  event.preventDefault();
+                  navigate(n.id);
+                }
+              }}
             >
-              <n.icon size={14} />
+              <n.icon size={16} aria-hidden="true" />
               {n.label}
-            </button>
+            </a>
           ))}
         </nav>
       </aside>
-      <main>
+      <main id="main-content" tabIndex={-1}>
         <div className="content">
           <header className="section-heading">
             <h1>{titles[page] || "Today"}</h1>
@@ -609,7 +686,7 @@ export default function Vault() {
               Offline · saved locally
             </div>
           )}
-          {error && (
+          {error && !importData && (
             <div role="alert" className="alert error">
               {error}
               <button onClick={() => setError("")}>Dismiss</button>
@@ -618,7 +695,7 @@ export default function Vault() {
           {worker && (
             <div className="alert">
               <button
-                disabled={pending > 0 || !!edit}
+                disabled={pending > 0 || !!edit || !!importData}
                 onClick={() => {
                   navigator.serviceWorker.addEventListener(
                     "controllerchange",
@@ -676,7 +753,11 @@ export default function Vault() {
                   {todayHabits.length ? (
                     todayHabits.map((h) => habitRow(h))
                   ) : (
-                    <Empty text="No habits" />
+                    <Empty
+                      text="No habits"
+                      action={() => newItem("habit")}
+                      label="Create habit"
+                    />
                   )}
                 </Section>
                 <Section
@@ -687,7 +768,11 @@ export default function Vault() {
                   {todayTasks.length ? (
                     todayTasks.map(taskRow)
                   ) : (
-                    <Empty text="No tasks" />
+                    <Empty
+                      text="No tasks"
+                      action={() => newItem("task")}
+                      label="Create task"
+                    />
                   )}
                 </Section>
                 <Section
@@ -698,7 +783,11 @@ export default function Vault() {
                   {activeProjects.length ? (
                     activeProjects.map((p) => projectRow(p))
                   ) : (
-                    <Empty text="No projects" />
+                    <Empty
+                      text="No projects"
+                      action={() => newItem("project")}
+                      label="Create project"
+                    />
                   )}
                 </Section>
                 <Section
@@ -709,7 +798,11 @@ export default function Vault() {
                   {activeGoals.length ? (
                     activeGoals.map(goalRow)
                   ) : (
-                    <Empty text="No goals" />
+                    <Empty
+                      text="No goals"
+                      action={() => newItem("goal")}
+                      label="Create goal"
+                    />
                   )}
                 </Section>
               </div>
@@ -727,18 +820,23 @@ export default function Vault() {
                 {habits.length ? (
                   habits.map((h) => habitRow(h, today, true))
                 ) : (
-                  <Empty text="No habits" />
+                  <Empty
+                    text="No habits"
+                    action={() => newItem("habit")}
+                    label="Create habit"
+                  />
                 )}
               </div>
             </>
           )}
           {page === "tasks" && (
             <>
-              <div className="tabs">
+              <div className="tabs" aria-label="Task filters">
                 {["Inbox", "Today", "Upcoming", "Overdue", "Completed"].map(
                   (v) => (
                     <button
                       className={filter === v ? "active" : ""}
+                      aria-pressed={filter === v}
                       key={v}
                       onClick={() => setFilter(v)}
                     >
@@ -754,7 +852,11 @@ export default function Vault() {
                 {visibleTasks.length ? (
                   visibleTasks.map(taskRow)
                 ) : (
-                  <Empty text={`No ${filter.toLowerCase()} tasks`} />
+                  <Empty
+                    text={`No ${filter.toLowerCase()} tasks`}
+                    action={() => newItem("task")}
+                    label="Create task"
+                  />
                 )}
               </div>
             </>
@@ -765,8 +867,7 @@ export default function Vault() {
                 <MonthPicker month={currentMonth} onChange={setMonth} />
                 <button
                   onClick={() => {
-                    setSelected(today);
-                    setMonth(today.slice(0, 7));
+                    update({ selected: today, month: today.slice(0, 7) });
                   }}
                 >
                   Today
@@ -812,7 +913,16 @@ export default function Vault() {
                 </div>
               </section>
               <div className="section-title">
-                <h2>{day}</h2>
+                <h2>
+                  <time dateTime={day}>
+                    {new Date(day + "T12:00:00").toLocaleDateString("en", {
+                      weekday: "short",
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </time>
+                </h2>
               </div>
               <div className="panel">
                 {activeHabits
@@ -840,7 +950,11 @@ export default function Vault() {
                 {projects.length ? (
                   projects.map((p) => projectRow(p, true))
                 ) : (
-                  <Empty text="No projects" />
+                  <Empty
+                    text="No projects"
+                    action={() => newItem("project")}
+                    label="Create project"
+                  />
                 )}
               </div>
             </>
@@ -854,7 +968,15 @@ export default function Vault() {
                 </button>
               </div>
               <div className="panel">
-                {goals.length ? goals.map(goalRow) : <Empty text="No goals" />}
+                {goals.length ? (
+                  goals.map(goalRow)
+                ) : (
+                  <Empty
+                    text="No goals"
+                    action={() => newItem("goal")}
+                    label="Create goal"
+                  />
+                )}
               </div>
             </>
           )}
@@ -865,6 +987,7 @@ export default function Vault() {
                   <button
                     key={v}
                     className={period === v ? "active" : ""}
+                    aria-pressed={period === v}
                     onClick={() => setPeriod(v)}
                   >
                     This {v}
@@ -877,10 +1000,29 @@ export default function Vault() {
           {page === "more" && (
             <nav className="more-links" aria-label="More">
               {extra.map((n) => (
-                <button key={n.id} onClick={() => navigate(n.id)}>
-                  <n.icon size={14} />
+                <a
+                  key={n.id}
+                  href={hrefFor(n.id)}
+                  onClick={(event) => {
+                    if (
+                      !event.metaKey &&
+                      !event.ctrlKey &&
+                      !event.shiftKey &&
+                      !event.altKey
+                    ) {
+                      event.preventDefault();
+                      navigate(n.id);
+                    }
+                  }}
+                >
+                  <n.icon size={18} aria-hidden="true" />
                   {n.label}
-                </button>
+                  <ChevronRight
+                    size={16}
+                    className="chevron"
+                    aria-hidden="true"
+                  />
+                </a>
               ))}
             </nav>
           )}
@@ -968,7 +1110,10 @@ export default function Vault() {
                     Download pre-update backup · {r.createdAt.slice(0, 10)}
                   </button>
                 ))}
-                <p>Device-only data. Clearing browser storage deletes it.</p>
+                <p>
+                  Records stay in this browser. Each device is separate.
+                  Clearing browser storage deletes them.
+                </p>
                 <div className="button-row">
                   <button onClick={exportBackup}>Export backup</button>
                   <label className="file-label">
@@ -1017,10 +1162,10 @@ export default function Vault() {
                   onClick={() =>
                     run(async () => {
                       if (!(await navigator.storage?.persist?.()))
-                        setError(
+                        throw new Error(
                           "Persistent storage not granted. Keep JSON backups.",
                         );
-                    })
+                    }, "Persistent storage granted")
                   }
                 >
                   Request persistent storage
@@ -1036,10 +1181,68 @@ export default function Vault() {
           )}
         </div>
       </main>
+      <div className="save-status" role="status" aria-live="polite">
+        {pending ? "Saving…" : status}
+      </div>
+      {["today", "habits", "tasks", "calendar", "projects", "goals"].includes(
+        page,
+      ) &&
+        !edit &&
+        !importData && (
+          <div
+            className="quick-add"
+            ref={quickRef}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                setQuickAdd(false);
+                event.currentTarget
+                  .querySelector<HTMLButtonElement>(".quick-trigger")
+                  ?.focus();
+              }
+            }}
+          >
+            {quickAdd && (
+              <div
+                className="quick-menu"
+                id="quick-add-menu"
+                role="group"
+                aria-label="Create record"
+              >
+                {(["habit", "task", "project", "goal"] as const).map((kind) => (
+                  <button key={kind} onClick={() => newItem(kind)}>
+                    <Plus size={16} aria-hidden="true" />
+                    New {kind}
+                  </button>
+                ))}
+              </div>
+            )}
+            <button
+              className="quick-trigger"
+              aria-label={
+                page === "today" ? "Quick add" : `Quick add ${addKind}`
+              }
+              aria-expanded={page === "today" ? quickAdd : undefined}
+              aria-controls={
+                page === "today" && quickAdd ? "quick-add-menu" : undefined
+              }
+              onClick={() =>
+                page === "today" ? setQuickAdd(!quickAdd) : newItem(addKind)
+              }
+            >
+              {quickAdd ? (
+                <X size={16} aria-hidden="true" />
+              ) : (
+                <Plus size={16} aria-hidden="true" />
+              )}
+              Add
+            </button>
+          </div>
+        )}
       <nav className="bottom-nav" aria-label="Main navigation">
         {navigation.map((n) => (
-          <button
+          <a
             key={n.id}
+            href={hrefFor(n.id)}
             aria-current={
               page === n.id ||
               (n.id === "more" && extra.some((e) => e.id === page))
@@ -1052,11 +1255,21 @@ export default function Vault() {
                 ? "active"
                 : ""
             }
-            onClick={() => navigate(n.id)}
+            onClick={(event) => {
+              if (
+                !event.metaKey &&
+                !event.ctrlKey &&
+                !event.shiftKey &&
+                !event.altKey
+              ) {
+                event.preventDefault();
+                navigate(n.id);
+              }
+            }}
           >
-            <n.icon size={14} />
+            <n.icon size={18} aria-hidden="true" />
             <span>{n.label}</span>
-          </button>
+          </a>
         ))}
       </nav>
       {edit && (
@@ -1066,16 +1279,23 @@ export default function Vault() {
           data={data}
           today={today}
           onClose={() => setEdit(null)}
-          onError={setError}
+          onSaved={() => setStatus("Saved on this device")}
         />
       )}
       {importData && (
         <CenteredDialog
           title="Replace local data?"
-          onClose={() => setImportData(null)}
+          onClose={() => {
+            if (!pending) setImportData(null);
+          }}
           footer={
             <>
-              <button onClick={() => setImportData(null)}>Cancel</button>
+              <button
+                disabled={pending > 0}
+                onClick={() => setImportData(null)}
+              >
+                Cancel
+              </button>
               <button
                 className="primary"
                 disabled={pending > 0}
@@ -1092,6 +1312,11 @@ export default function Vault() {
           }
         >
           <div className="restore-body">
+            {error && (
+              <p className="error" role="alert">
+                {error}
+              </p>
+            )}
             <p>
               {importData.habits.length} habits, {importData.entries.length}{" "}
               check-ins, {importData.tasks.length} tasks,{" "}
@@ -1134,204 +1359,5 @@ function MonthPicker({
         <ChevronRight size={18} />
       </button>
     </div>
-  );
-}
-function Reports({
-  data,
-  today,
-  period,
-}: {
-  data: Backup;
-  today: string;
-  period: string;
-}) {
-  const start =
-    period === "month"
-      ? today.slice(0, 7) + "-01"
-      : addDays(today, -((weekday(today) - data.settings.weekStart + 7) % 7));
-  const dates = daysBetween(start, today);
-  const weeklyHabits = data.habits.filter(
-    (h) => !h.archived && h.period === "weekly",
-  );
-  const habits = data.habits.filter(
-    (h) => !h.archived && h.period !== "weekly",
-  );
-  const scheduledCount = habits.reduce(
-    (n, h) => n + dates.filter((d) => scheduled(h, d)).length,
-    0,
-  );
-  const count = habits.reduce(
-    (n, h) =>
-      n +
-      dates.filter((d) => scheduled(h, d) && completed(h, data.entries, d))
-        .length,
-    0,
-  );
-  return (
-    <>
-      <Summary
-        items={[
-          {
-            label: "Daily habits",
-            value: `${scheduledCount ? Math.round((count / scheduledCount) * 100) : 0}% (${count}/${scheduledCount})`,
-          },
-          {
-            label: "Completed tasks",
-            value: data.tasks.filter(
-              (t) =>
-                t.done &&
-                t.completedAt &&
-                todayIn(data.settings.timezone, new Date(t.completedAt)) >=
-                  start &&
-                todayIn(data.settings.timezone, new Date(t.completedAt)) <=
-                  today,
-            ).length,
-          },
-          {
-            label: "Overdue",
-            value: data.tasks.filter((t) => !t.done && t.due && t.due < today)
-              .length,
-          },
-        ]}
-      />
-      <section className="panel report-panel">
-        <h2>Daily completion</h2>
-        <p className="hint">
-          {start} to {today}
-        </p>
-        <div
-          className="bar-chart"
-          role="img"
-          aria-label="Daily habit completion chart; exact values follow below"
-        >
-          {dates.map((d) => {
-            const hs = habits.filter((h) => scheduled(h, d));
-            const done = hs.filter((h) => completed(h, data.entries, d)).length;
-            return (
-              <div key={d} title={`${d}: ${done}/${hs.length}`}>
-                <div className="bar-track">
-                  <span
-                    style={{
-                      height: `${hs.length ? (done / hs.length) * 100 : 0}%`,
-                    }}
-                  />
-                </div>
-                <small>{Number(d.slice(-2))}</small>
-              </div>
-            );
-          })}
-        </div>
-        <details>
-          <summary>Daily values</summary>
-          <ul>
-            {dates.map((d) => (
-              <li key={d}>
-                {d}:{" "}
-                {
-                  habits.filter(
-                    (h) => scheduled(h, d) && completed(h, data.entries, d),
-                  ).length
-                }{" "}
-                / {habits.filter((h) => scheduled(h, d)).length} habits
-              </li>
-            ))}
-          </ul>
-        </details>
-      </section>
-      {weeklyHabits.length > 0 && (
-        <section className="panel report-panel">
-          <h2>Weekly targets</h2>
-          {weeklyHabits.map((h) => {
-            const stats = streaks(
-              h,
-              data.entries,
-              today,
-              data.settings.weekStart,
-            );
-            return (
-              <div className="insight" key={h.id}>
-                <strong>{h.title}</strong>
-                <span>
-                  {weeklyTotal(h, data.entries, today, data.settings.weekStart)}{" "}
-                  / {h.target} {h.unit} this week
-                </span>
-                <span>
-                  Current: {stats.current}w · Best: {stats.best}w
-                </span>
-              </div>
-            );
-          })}
-        </section>
-      )}
-      <section className="panel report-panel">
-        <h2>Habit insights</h2>
-        {habits.length ? (
-          habits.map((h) => {
-            const s = streaks(h, data.entries, today);
-            const total = data.entries
-              .filter(
-                (e) => e.habitId === h.id && e.date >= start && e.date <= today,
-              )
-              .reduce((n, e) => n + e.value, 0);
-            return (
-              <div className="insight" key={h.id}>
-                <strong>
-                  {h.icon} {h.title}
-                </strong>
-                <span>
-                  {total} {h.kind === "quantity" ? h.unit : "check-ins"}
-                </span>
-                <span>
-                  Current: {s.current} · Best: {s.best}
-                </span>
-              </div>
-            );
-          })
-        ) : (
-          <p className="hint">No habits</p>
-        )}
-      </section>
-      <div className="record-grid">
-        <section className="panel report-panel">
-          <h2>Project progress</h2>
-          {data.projects
-            .filter((p) => p.status !== "archived")
-            .map((p) => (
-              <div className="report-item" key={p.id}>
-                <p>
-                  {p.title} ·{" "}
-                  {Math.round(projectProgress(p.id, data.tasks, today))}%
-                </p>
-                <Meter
-                  value={projectProgress(p.id, data.tasks, today)}
-                  label={p.title}
-                />
-              </div>
-            ))}
-        </section>
-        <section className="panel report-panel">
-          <h2>Goal progress</h2>
-          {data.goals
-            .filter((g) => !g.archived)
-            .map((g) => {
-              const v = goalProgress(g, data, today);
-              return (
-                <div className="report-item" key={g.id}>
-                  <p>
-                    {g.title} ·{" "}
-                    {v.missing
-                      ? "Source removed"
-                      : `${Math.round(v.value)}/${g.target}`}
-                  </p>
-                  <Meter
-                    value={v.missing ? 0 : (v.value / g.target) * 100}
-                    label={g.title}
-                  />
-                </div>
-              );
-            })}
-        </section>
-      </div>
-    </>
   );
 }

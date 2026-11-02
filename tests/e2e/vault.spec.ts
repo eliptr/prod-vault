@@ -47,7 +47,18 @@ test("projects, linked goals, quantity history, recurrence, and deletion", async
     page.getByRole("spinbutton", { name: /Drink water quantity/ }),
   ).toHaveValue("8");
   await page
+    .locator(".habit-record")
+    .filter({
+      has: page.getByRole("button", { name: "Drink water", exact: true }),
+    })
+    .getByText("History", { exact: false })
+    .click();
+  await page
     .getByRole("button", { name: `Drink water ${today} complete` })
+    .click();
+  await expect(page.locator(".history-editor")).toBeVisible();
+  await page
+    .getByRole("button", { name: "Open calendar", exact: true })
     .click();
   await expect(page.getByRole("heading", { name: "Calendar" })).toBeVisible();
   await page.goto("/#tasks");
@@ -99,6 +110,7 @@ test("create records, check habits, complete subtasks, and persist offline", asy
         new Date(),
       ),
     );
+  await page.getByText("Notes & subtasks", { exact: true }).click();
   await page.getByLabel("Subtasks").fill("Make tea\nOpen notebook");
   await page.getByRole("button", { name: "Save task" }).click();
   await page.getByRole("button", { name: "Complete Plan tomorrow" }).click();
@@ -126,7 +138,7 @@ test("sample data, themes, backup validation and restore", async ({ page }) => {
   await page.goto("/");
   await loadSample(page);
   await expect(
-    page.getByRole("button", { name: "Read a little" }),
+    page.getByRole("button", { name: "Read a little", exact: true }),
   ).toBeVisible();
   await page.goto("/#settings");
   await page.getByLabel("Appearance").selectOption("dark");

@@ -208,6 +208,7 @@ test("centered panels stay inside visual viewport with keyboard offsets", async 
         path: `test-results/dialog-${test.info().project.name}-${kind}-${theme}.png`,
         scale: "css",
       });
+      page.once("dialog", (dialog) => dialog.accept());
       await page.keyboard.press("Escape");
       await expect(dialog).not.toBeVisible();
       await expect(trigger).toBeFocused();

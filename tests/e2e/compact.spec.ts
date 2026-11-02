@@ -35,7 +35,7 @@ test("compact density, responsive themes and controls", async ({ page }) => {
         const nav = await page.locator(".bottom-nav").boundingBox();
         for (const locator of [
           page.locator(".summary-strip"),
-          page.locator(".habit-row"),
+          page.locator(".overview > .section").first().locator(".habit-row"),
           page.getByRole("heading", { name: /^Tasks/ }),
           page.locator(".task-row").nth(0),
           page.locator(".task-row").nth(1),

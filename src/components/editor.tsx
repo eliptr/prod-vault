@@ -1,5 +1,17 @@
 "use client";
-import { useId, useState } from "react";
+import {
+  Children,
+  cloneElement,
+  createContext,
+  isValidElement,
+  useContext,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import CenteredDialog from "./dialog";
 import { ZodError } from "zod";
 import { db, remove } from "@/lib/db";
@@ -20,22 +32,56 @@ export type Edit = {
   kind: "habit" | "task" | "project" | "goal";
   record?: Habit | Task | Project | Goal;
   projectId?: string;
+  due?: string;
 };
+const FieldErrors = createContext<Record<string, string>>({});
+function Field({ children }: { children: ReactNode }) {
+  const errors = useContext(FieldErrors);
+  const id = useId();
+  const parts = Children.toArray(children);
+  const control = parts.find(
+    (child) =>
+      isValidElement(child) &&
+      typeof child.type === "string" &&
+      ["input", "select", "textarea"].includes(child.type),
+  ) as ReactElement<{ name?: string; "aria-describedby"?: string }> | undefined;
+  const error = control?.props.name ? errors[control.props.name] : undefined;
+  return (
+    <div className="form-field">
+      <label htmlFor={id}>{parts.filter((child) => child !== control)}</label>
+      {control &&
+        cloneElement(control, {
+          id,
+          autoComplete: "off",
+          "aria-describedby": error ? `${id}-error` : undefined,
+          "aria-invalid": !!error,
+        } as object)}
+      {error && (
+        <span className="field-error" id={`${id}-error`}>
+          {error}
+        </span>
+      )}
+    </div>
+  );
+}
 export default function Editor({
   edit,
   data,
   today,
   onClose,
-  onError,
+  onSaved,
 }: {
   edit: Edit;
   data: Backup;
   today: string;
   onClose: () => void;
-  onError: (s: string) => void;
+  onSaved: () => void;
 }) {
   const formId = useId();
+  const formRef = useRef<HTMLFormElement>(null);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [source, setSource] = useState(
     edit.kind === "goal" ? (edit.record as Goal)?.source || "manual" : "manual",
@@ -50,9 +96,47 @@ export default function Editor({
   const t = r as Task | undefined;
   const p = r as Project | undefined;
   const g = r as Goal | undefined;
+  useEffect(() => {
+    if (!dirty) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [dirty]);
+  function close() {
+    if (!busy && (!dirty || confirm("Discard unsaved changes?"))) onClose();
+  }
+  function showErrors(fields: Record<string, string>, message: string) {
+    setFieldErrors(fields);
+    setError(message);
+    requestAnimationFrame(() => {
+      const name = Object.keys(fields)[0];
+      const field = name ? formRef.current?.elements.namedItem(name) : null;
+      if (field instanceof HTMLElement) field.focus();
+      else
+        formRef.current?.querySelector<HTMLElement>(".error-summary")?.focus();
+    });
+  }
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError("");
+    setFieldErrors({});
+    if (!event.currentTarget.checkValidity()) {
+      const fields: Record<string, string> = {};
+      for (const element of Array.from(event.currentTarget.elements)) {
+        if (
+          (element instanceof HTMLInputElement ||
+            element instanceof HTMLSelectElement ||
+            element instanceof HTMLTextAreaElement) &&
+          !element.validity.valid
+        )
+          fields[element.name] = element.validationMessage;
+      }
+      showErrors(fields, "Check the highlighted fields.");
+      return;
+    }
     setBusy(true);
     const f = new FormData(event.currentTarget);
     const s = (key: string) => String(f.get(key) || "");
@@ -106,6 +190,13 @@ export default function Editor({
           }),
         );
       if (edit.kind === "task") {
+        if (s("frequency") !== "none" && !s("due")) {
+          showErrors(
+            { due: "Choose a due date for this schedule." },
+            "Choose a due date for this schedule.",
+          );
+          return;
+        }
         const oldTemplate = t?.templateId
           ? data.templates.find((v) => v.id === t.templateId && !v.retired)
           : undefined;
@@ -131,8 +222,6 @@ export default function Editor({
           showDaily: s("frequency") === "daily",
         });
         const frequency = s("frequency");
-        if (frequency !== "none" && !task.due)
-          throw new Error("Choose a due date for a recurring task.");
         await db.transaction("rw", [db.tasks, db.templates], async () => {
           if (!r && frequency === "weekly") {
             const id = crypto.randomUUID();
@@ -186,14 +275,32 @@ export default function Editor({
           }
         });
       }
+      onSaved();
       onClose();
     } catch (e) {
-      setError(
+      const message =
+        e instanceof Error ? e.message : "Could not save. Please try again.";
+      const fields =
         e instanceof ZodError
-          ? e.issues.map((issue) => issue.message).join(" ")
-          : e instanceof Error
-            ? e.message
-            : "Could not save. Please try again.",
+          ? Object.fromEntries(
+              e.issues.map((issue) => [
+                String(
+                  issue.path[0] ||
+                    (issue.message.startsWith("Deadline")
+                      ? "deadline"
+                      : issue.message.includes("progress source")
+                        ? "sourceId"
+                        : ""),
+                ),
+                issue.message,
+              ]),
+            )
+          : message.includes("due date")
+            ? { due: message }
+            : {};
+      showErrors(
+        fields,
+        e instanceof ZodError ? "Check the highlighted fields." : message,
       );
     } finally {
       setBusy(false);
@@ -210,29 +317,34 @@ export default function Editor({
     setBusy(true);
     try {
       await remove(edit.kind, r.id);
+      onSaved();
       onClose();
     } catch {
-      onError("Could not delete this item.");
+      showErrors({}, "Could not delete this item. Please retry.");
     } finally {
       setBusy(false);
     }
   }
   async function archive() {
     if (!r) return;
+    setBusy(true);
     try {
       if (edit.kind === "habit")
         await db.habits.update(r.id, { archived: !h?.archived });
       if (edit.kind === "goal")
         await db.goals.update(r.id, { archived: !g?.archived });
+      onSaved();
       onClose();
     } catch {
-      onError("Could not archive this item.");
+      showErrors({}, "Could not archive this item. Please retry.");
+    } finally {
+      setBusy(false);
     }
   }
   return (
     <CenteredDialog
       title={`${r ? "Edit" : "New"} ${edit.kind}`}
-      onClose={onClose}
+      onClose={close}
       footer={
         <>
           {r && (
@@ -261,286 +373,322 @@ export default function Editor({
         </>
       }
     >
-      <form id={formId} onSubmit={submit} className="editor-form">
-        <label>
-          Name
-          <input
-            name="title"
-            defaultValue={r?.title}
-            required
-            maxLength={edit.kind === "task" ? 200 : 100}
-          />
-        </label>
-        {edit.kind === "habit" && (
-          <>
-            <div className="form-row">
-              <label>
-                Icon
-                <input
-                  name="icon"
-                  defaultValue={h?.icon || "✦"}
-                  maxLength={8}
-                />
-              </label>
-              <label>
-                Color
-                <input
-                  type="color"
-                  name="color"
-                  defaultValue={h?.color || "#87a993"}
-                />
-              </label>
-            </div>
-            <label>
-              Tracking
-              <select
-                value={kind}
-                onChange={(e) =>
-                  setKind(e.target.value as "check" | "quantity")
-                }
-              >
-                <option value="check">Daily check-off</option>
-                <option value="quantity">Daily quantity target</option>
-                <option value="weekly">Weekly quantity target</option>
-              </select>
-            </label>
-            {kind !== "check" && (
-              <div className="form-row">
-                <label>
-                  {kind === "weekly" ? "Weekly target" : "Daily target"}
-                  <input
-                    type="number"
-                    name="target"
-                    min="0.01"
-                    step="any"
-                    defaultValue={h?.target || 30}
-                    required
-                  />
-                </label>
-                <label>
-                  Unit
-                  <input
-                    name="unit"
-                    defaultValue={
-                      h?.unit || (kind === "weekly" ? "sessions" : "minutes")
-                    }
-                    maxLength={30}
-                  />
-                </label>
-              </div>
-            )}
-            {kind !== "weekly" && (
-              <fieldset>
-                <legend>Scheduled days</legend>
-                <div className="weekdays">
-                  {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
-                    (day, i) => (
-                      <label key={day}>
-                        <input
-                          type="checkbox"
-                          name="weekdays"
-                          value={i}
-                          defaultChecked={h ? h.weekdays.includes(i) : true}
-                        />
-                        <span>{day}</span>
-                      </label>
-                    ),
-                  )}
-                </div>
-              </fieldset>
-            )}
-            <p className="hint">Schedule/target edits affect history.</p>
-          </>
-        )}
-        {edit.kind === "task" && (
-          <>
-            <label>
-              Notes
-              <textarea name="notes" defaultValue={t?.notes} rows={3} />
-            </label>
-            <div className="form-row">
-              <label>
-                Due date
-                <input type="date" name="due" defaultValue={t?.due || ""} />
-              </label>
-              <label>
-                Priority
-                <select name="priority" defaultValue={t?.priority || "medium"}>
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </label>
-            </div>
-            <label>
-              Project
-              <select
-                name="projectId"
-                defaultValue={t?.projectId || edit.projectId || ""}
-              >
-                <option value="">No project</option>
-                {data.projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.title}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Schedule
-              <select
-                name="frequency"
-                defaultValue={
-                  t?.showDaily
-                    ? "daily"
-                    : data.templates.find(
-                        (v) => v.id === t?.templateId && !v.retired,
-                      )?.frequency || "none"
-                }
-              >
-                <option value="none">One time</option>
-                <option value="daily">Show daily until completed</option>
-                <option value="weekly">Repeat weekly</option>
-              </select>
-            </label>
-            {t?.templateId && (
-              <p className="hint">Series changes apply after today.</p>
-            )}
-            <label>
-              Subtasks <span className="hint">one per line</span>
-              <textarea
-                name="subtasks"
-                defaultValue={t?.subtasks.map((s) => s.title).join("\n")}
-                rows={3}
-              />
-            </label>
-          </>
-        )}
-        {edit.kind === "project" && (
-          <>
-            <label>
-              Description
-              <textarea
-                name="description"
-                defaultValue={p?.description}
-                rows={3}
-              />
-            </label>
-            <div className="form-row">
-              <label>
-                Deadline
-                <input
-                  type="date"
-                  name="deadline"
-                  defaultValue={p?.deadline || ""}
-                />
-              </label>
-              <label>
-                Color
-                <input
-                  type="color"
-                  name="color"
-                  defaultValue={p?.color || "#e0b276"}
-                />
-              </label>
-            </div>
-            <label>
-              Status
-              <select name="status" defaultValue={p?.status || "active"}>
-                <option value="active">Active</option>
-                <option value="completed">Completed</option>
-                <option value="archived">Archived</option>
-              </select>
-            </label>
-          </>
-        )}
-        {edit.kind === "goal" && (
-          <>
-            <label>
-              Progress source
-              <select
-                value={source}
-                onChange={(e) => setSource(e.target.value as Goal["source"])}
-              >
-                <option value="manual">Manual number</option>
-                <option value="project">Project completion</option>
-                <option value="habit">Habit total</option>
-              </select>
-            </label>
-            {source !== "manual" && (
-              <label>
-                {source === "habit" ? "Habit" : "Project"}
+      <FieldErrors.Provider value={fieldErrors}>
+        <form
+          ref={formRef}
+          id={formId}
+          noValidate
+          onSubmit={submit}
+          onChange={() => {
+            setDirty(true);
+            setError("");
+            setFieldErrors({});
+          }}
+          className="editor-form"
+          aria-busy={busy}
+        >
+          <Field>
+            Name
+            <input
+              name="title"
+              autoComplete="off"
+              defaultValue={r?.title}
+              required
+              maxLength={edit.kind === "task" ? 200 : 100}
+            />
+          </Field>
+          {edit.kind === "habit" && (
+            <>
+              <Field>
+                Tracking
                 <select
-                  name="sourceId"
-                  defaultValue={g?.sourceId || ""}
-                  required
+                  name="tracking"
+                  value={kind}
+                  onChange={(e) =>
+                    setKind(e.target.value as "check" | "quantity")
+                  }
                 >
-                  <option value="">Choose a source</option>
-                  {(source === "habit" ? data.habits : data.projects).map(
-                    (v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.title}
-                      </option>
-                    ),
-                  )}
+                  <option value="check">Daily check-off</option>
+                  <option value="quantity">Daily quantity target</option>
+                  <option value="weekly">Weekly quantity target</option>
                 </select>
-              </label>
-            )}
-            <div className="form-row">
-              {source !== "project" && (
-                <label>
-                  Target
+              </Field>
+              {kind !== "check" && (
+                <div className="form-row">
+                  <Field>
+                    {kind === "weekly" ? "Weekly target" : "Daily target"}
+                    <input
+                      type="number"
+                      name="target"
+                      min="0.01"
+                      step="any"
+                      defaultValue={h?.target || 30}
+                      required
+                    />
+                  </Field>
+                  <Field>
+                    Unit
+                    <input
+                      name="unit"
+                      defaultValue={
+                        h?.unit || (kind === "weekly" ? "sessions" : "minutes")
+                      }
+                      maxLength={30}
+                    />
+                  </Field>
+                </div>
+              )}
+              {kind !== "weekly" && (
+                <fieldset>
+                  <legend>Scheduled days</legend>
+                  <div className="weekdays">
+                    {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(
+                      (day, i) => (
+                        <label key={day}>
+                          <input
+                            type="checkbox"
+                            name="weekdays"
+                            value={i}
+                            defaultChecked={h ? h.weekdays.includes(i) : true}
+                          />
+                          <span>{day}</span>
+                        </label>
+                      ),
+                    )}
+                  </div>
+                </fieldset>
+              )}
+              <details>
+                <summary>Appearance</summary>
+                <div className="form-row">
+                  <Field>
+                    Icon
+                    <input
+                      name="icon"
+                      defaultValue={h?.icon || "✦"}
+                      maxLength={8}
+                    />
+                  </Field>
+                  <Field>
+                    Color
+                    <input
+                      type="color"
+                      name="color"
+                      defaultValue={h?.color || "#87a993"}
+                    />
+                  </Field>
+                </div>
+              </details>
+              {fieldErrors.weekdays && (
+                <p className="field-error">Select at least one day.</p>
+              )}
+              <p className="hint">Schedule/target edits affect history.</p>
+            </>
+          )}
+          {edit.kind === "task" && (
+            <>
+              <div className="form-row">
+                <Field>
+                  Due date
                   <input
-                    name="target"
-                    type="number"
-                    min="0.01"
-                    step="any"
-                    defaultValue={g?.target || 100}
+                    type="date"
+                    name="due"
+                    defaultValue={t?.due || edit.due || ""}
+                  />
+                </Field>
+                <Field>
+                  Priority
+                  <select
+                    name="priority"
+                    defaultValue={t?.priority || "medium"}
+                  >
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                  </select>
+                </Field>
+              </div>
+              <Field>
+                Project
+                <select
+                  name="projectId"
+                  defaultValue={t?.projectId || edit.projectId || ""}
+                >
+                  <option value="">No project</option>
+                  {data.projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.title}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <Field>
+                Schedule
+                <select
+                  name="frequency"
+                  defaultValue={
+                    t?.showDaily
+                      ? "daily"
+                      : data.templates.find(
+                          (v) => v.id === t?.templateId && !v.retired,
+                        )?.frequency || "none"
+                  }
+                >
+                  <option value="none">One time</option>
+                  <option value="daily">Show daily until completed</option>
+                  <option value="weekly">Repeat weekly</option>
+                </select>
+              </Field>
+              {t?.templateId && (
+                <p className="hint">Series changes apply after today.</p>
+              )}
+              <details open={!!t?.notes || !!t?.subtasks.length}>
+                <summary>Notes &amp; subtasks</summary>
+                <Field>
+                  Notes
+                  <textarea name="notes" defaultValue={t?.notes} rows={3} />
+                </Field>
+                <Field>
+                  Subtasks <span className="hint">one per line</span>
+                  <textarea
+                    name="subtasks"
+                    defaultValue={t?.subtasks.map((s) => s.title).join("\n")}
+                    rows={3}
+                  />
+                </Field>
+              </details>
+            </>
+          )}
+          {edit.kind === "project" && (
+            <>
+              <details open={!!p?.description}>
+                <summary>Description</summary>
+                <Field>
+                  Description
+                  <textarea
+                    name="description"
+                    defaultValue={p?.description}
+                    rows={3}
+                  />
+                </Field>
+              </details>
+              <div className="form-row">
+                <Field>
+                  Deadline
+                  <input
+                    type="date"
+                    name="deadline"
+                    defaultValue={p?.deadline || ""}
+                  />
+                </Field>
+                <Field>
+                  Color
+                  <input
+                    type="color"
+                    name="color"
+                    defaultValue={p?.color || "#e0b276"}
+                  />
+                </Field>
+              </div>
+              <Field>
+                Status
+                <select name="status" defaultValue={p?.status || "active"}>
+                  <option value="active">Active</option>
+                  <option value="completed">Completed</option>
+                  <option value="archived">Archived</option>
+                </select>
+              </Field>
+            </>
+          )}
+          {edit.kind === "goal" && (
+            <>
+              <Field>
+                Progress source
+                <select
+                  name="source"
+                  value={source}
+                  onChange={(e) => setSource(e.target.value as Goal["source"])}
+                >
+                  <option value="manual">Manual number</option>
+                  <option value="project">Project completion</option>
+                  <option value="habit">Habit total</option>
+                </select>
+              </Field>
+              {source !== "manual" && (
+                <Field>
+                  {source === "habit" ? "Habit" : "Project"}
+                  <select
+                    name="sourceId"
+                    defaultValue={g?.sourceId || ""}
+                    required
+                  >
+                    <option value="">Choose a source</option>
+                    {(source === "habit" ? data.habits : data.projects).map(
+                      (v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.title}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </Field>
+              )}
+              <div className="form-row">
+                {source !== "project" && (
+                  <Field>
+                    Target
+                    <input
+                      name="target"
+                      type="number"
+                      min="0.01"
+                      step="any"
+                      defaultValue={g?.target || 100}
+                      required
+                    />
+                  </Field>
+                )}
+                {source === "manual" && (
+                  <Field>
+                    Current value
+                    <input
+                      name="value"
+                      type="number"
+                      min="0"
+                      step="any"
+                      defaultValue={g?.value || 0}
+                      required
+                    />
+                  </Field>
+                )}
+              </div>
+              <div className="form-row">
+                <Field>
+                  Start date
+                  <input
+                    name="startDate"
+                    type="date"
+                    defaultValue={g?.startDate || today}
                     required
                   />
-                </label>
-              )}
-              {source === "manual" && (
-                <label>
-                  Current value
+                </Field>
+                <Field>
+                  Deadline
                   <input
-                    name="value"
-                    type="number"
-                    min="0"
-                    step="any"
-                    defaultValue={g?.value || 0}
-                    required
+                    name="deadline"
+                    type="date"
+                    defaultValue={g?.deadline || ""}
                   />
-                </label>
-              )}
-            </div>
-            <div className="form-row">
-              <label>
-                Start date
-                <input
-                  name="startDate"
-                  type="date"
-                  defaultValue={g?.startDate || today}
-                  required
-                />
-              </label>
-              <label>
-                Deadline
-                <input
-                  name="deadline"
-                  type="date"
-                  defaultValue={g?.deadline || ""}
-                />
-              </label>
-            </div>
-          </>
-        )}
-        {error && (
-          <p role="alert" className="error">
-            {error}
-          </p>
-        )}
-      </form>
+                </Field>
+              </div>
+            </>
+          )}
+          {error && (
+            <p role="alert" className="error error-summary" tabIndex={-1}>
+              {error}
+            </p>
+          )}
+        </form>
+      </FieldErrors.Provider>
     </CenteredDialog>
   );
 }

@@ -28,13 +28,14 @@ test("iPhone safe areas and browser chrome follow the selected theme", async ({
     document.documentElement.style.setProperty("--safe-area-bottom", "34px");
   });
   const nav = await page.locator(".bottom-nav").boundingBox();
-  const buttons = await page.locator(".bottom-nav button").all();
+  const buttons = await page.locator(".bottom-nav a").all();
+  expect(buttons).toHaveLength(5);
   for (const button of buttons) {
     const rect = await button.boundingBox();
     expect(rect!.height).toBeGreaterThanOrEqual(44);
     expect(rect!.y + rect!.height).toBeLessThanOrEqual(844 - 34);
   }
-  expect(nav!.height).toBe(79);
+  expect(nav!.height).toBe(87);
   const heading = await page
     .getByRole("heading", { name: "Today", exact: true })
     .boundingBox();

@@ -1,8 +1,8 @@
 "use client";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
+import { Check, ChevronDown, Minus, Pencil, Plus } from "lucide-react";
 import {
   addDays,
-  completed,
   daysBetween,
   goalProgress,
   projectProgress,
@@ -10,6 +10,7 @@ import {
   streaks,
   weeklyTotal,
   logged,
+  weekday,
   type Backup,
   type Habit,
   type Task,
@@ -17,6 +18,67 @@ import {
   type Goal,
 } from "@/lib/domain";
 
+export function dateLabel(date: string) {
+  return new Intl.DateTimeFormat("en", {
+    month: "short",
+    day: "numeric",
+    year:
+      date.slice(0, 4) === String(new Date().getFullYear())
+        ? undefined
+        : "numeric",
+  }).format(new Date(date + "T12:00:00"));
+}
+export function DateValue({
+  date,
+  overdue = false,
+}: {
+  date?: string | null;
+  overdue?: boolean;
+}) {
+  return date ? (
+    <time
+      dateTime={date}
+      aria-label={`${overdue ? "Overdue, " : ""}${new Date(date + "T12:00:00").toLocaleDateString("en", { dateStyle: "full" })}`}
+      title={new Date(date + "T12:00:00").toLocaleDateString("en", {
+        dateStyle: "full",
+      })}
+      className={overdue ? "overdue" : "meta"}
+    >
+      {overdue && "Overdue · "}
+      {dateLabel(date)}
+    </time>
+  ) : null;
+}
+function RecordName({
+  children,
+  onClick,
+  icon,
+  color,
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  icon?: string;
+  color?: string;
+}) {
+  return (
+    <button className="record-name" title="Edit" onClick={onClick}>
+      {icon && (
+        <span className="habit-icon" aria-hidden="true">
+          {icon}
+        </span>
+      )}
+      {color && (
+        <span
+          className="color-dot"
+          style={{ background: color }}
+          aria-hidden="true"
+        />
+      )}
+      <span className="name-text">{children}</span>
+      <Pencil size={12} aria-hidden="true" className="edit-mark" />
+    </button>
+  );
+}
 export function ValueControl({
   value,
   label,
@@ -29,41 +91,64 @@ export function ValueControl({
   onStep: (delta: number) => void;
 }) {
   const [draft, setDraft] = useState(String(value));
-  useEffect(() => setDraft(String(value)), [value]);
+  const [invalid, setInvalid] = useState(false);
+  const id = useId();
+  useEffect(() => {
+    setDraft(String(value));
+    setInvalid(false);
+  }, [value]);
   function save() {
     const n = Number(draft);
     if (draft.trim() && Number.isFinite(n) && n >= 0) {
+      setInvalid(false);
       if (n !== value) onSet(n);
-    } else setDraft(String(value));
+    } else setInvalid(true);
   }
   return (
-    <span className="value-control">
-      <button
-        aria-label={`Decrease ${label}`}
-        disabled={value <= 0}
-        onClick={() => onStep(-1)}
-      >
-        −
-      </button>
-      <input
-        aria-label={label}
-        type="number"
-        min="0"
-        step="any"
-        inputMode="decimal"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onBlur={save}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") {
-            e.preventDefault();
-            e.currentTarget.blur();
-          }
-        }}
-      />
-      <button aria-label={`Increase ${label}`} onClick={() => onStep(1)}>
-        +
-      </button>
+    <span className="value-field">
+      <span className="value-control">
+        <button
+          aria-label={`Decrease ${label}`}
+          disabled={value <= 0}
+          onClick={() => onStep(-1)}
+        >
+          <Minus size={14} aria-hidden="true" />
+        </button>
+        <input
+          aria-label={label}
+          aria-invalid={invalid || undefined}
+          aria-describedby={invalid ? id : undefined}
+          type="number"
+          min="0"
+          step="any"
+          inputMode="decimal"
+          value={draft}
+          onChange={(e) => {
+            setDraft(e.target.value);
+            setInvalid(false);
+          }}
+          onBlur={save}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              e.currentTarget.blur();
+            }
+            if (e.key === "Escape") {
+              setDraft(String(value));
+              setInvalid(false);
+              e.stopPropagation();
+            }
+          }}
+        />
+        <button aria-label={`Increase ${label}`} onClick={() => onStep(1)}>
+          <Plus size={14} aria-hidden="true" />
+        </button>
+      </span>
+      {invalid && (
+        <span className="field-error" id={id} role="alert">
+          Enter 0 or more
+        </span>
+      )}
     </span>
   );
 }
@@ -121,7 +206,8 @@ export function Section({
             aria-label={`Add ${title === "Habits" ? "habit" : title === "Tasks" ? "task" : title === "Projects" ? "project" : "goal"}`}
             onClick={action}
           >
-            + Add
+            <Plus size={14} aria-hidden="true" />
+            Add
           </button>
         )}
       </header>
@@ -138,7 +224,8 @@ export function Summary({
     <div className="summary-strip">
       {items.map((item) => (
         <span key={item.label}>
-          {item.label} <strong>{item.value}</strong>
+          {item.label}
+          <strong>{item.value}</strong>
         </span>
       ))}
     </div>
@@ -160,6 +247,7 @@ export function TaskRow({
   onSubtask: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const detailsId = useId();
   return (
     <div className="task-row">
       <div className="task-main">
@@ -169,44 +257,60 @@ export function TaskRow({
           aria-pressed={t.done}
           onClick={onToggle}
         >
-          {t.done ? "✓" : "○"}
-        </button>
-        <button className="task-title" onClick={onEdit}>
-          <strong className={t.done ? "struck" : ""}>{t.title}</strong>
-          {(project || t.templateId) && (
-            <span>
-              {project}
-              {t.templateId ? " · Repeating" : ""}
-            </span>
+          {t.done ? (
+            <Check size={16} aria-hidden="true" />
+          ) : (
+            <span className="check-ring" aria-hidden="true" />
           )}
         </button>
-        <span className="priority" title={`Priority: ${t.priority}`}>
-          {t.priority}
-        </span>
-        {t.due && (
-          <time
-            dateTime={t.due}
-            className={t.due < today && !t.done ? "overdue" : ""}
+        <div className="task-content">
+          <button
+            className="task-title"
+            title="Edit task"
+            aria-label={`${t.title}${t.templateId ? " · Repeating" : ""}`}
+            onClick={onEdit}
           >
-            {t.due === today ? "Today" : t.due.slice(5)}
-          </time>
-        )}
+            <strong className={t.done ? "struck" : ""}>{t.title}</strong>
+            <Pencil size={12} aria-hidden="true" className="edit-mark" />
+          </button>
+          <div className="task-meta">
+            {t.templateId && <span>Repeating</span>}
+            {project && <span>{project}</span>}
+            <span className="priority" title={`Priority: ${t.priority}`}>
+              {t.priority}
+            </span>
+            {t.showDaily && <span>Daily</span>}
+            {t.due &&
+              (t.due === today ? (
+                <time dateTime={t.due}>Today</time>
+              ) : (
+                <DateValue date={t.due} overdue={t.due < today && !t.done} />
+              ))}
+          </div>
+        </div>
         {(t.notes || t.subtasks.length > 0) && (
           <button
             className="expand"
             aria-label={`Details for ${t.title}`}
             aria-expanded={expanded}
+            aria-controls={detailsId}
             onClick={() => setExpanded(!expanded)}
           >
-            {expanded ? "−" : "+"}
-            {t.subtasks.length
-              ? `${t.subtasks.filter((s) => s.done).length}/${t.subtasks.length}`
-              : ""}
+            {t.subtasks.length > 0 && (
+              <span>
+                {t.subtasks.filter((s) => s.done).length}/{t.subtasks.length}
+              </span>
+            )}
+            <ChevronDown
+              size={14}
+              aria-hidden="true"
+              className={expanded ? "rotated" : ""}
+            />
           </button>
         )}
       </div>
       {expanded && (
-        <div className="task-details">
+        <div className="task-details" id={detailsId}>
           {t.notes && <p>{t.notes}</p>}
           {t.subtasks.map((s) => (
             <label key={s.id}>
@@ -215,7 +319,7 @@ export function TaskRow({
                 checked={s.done}
                 onChange={() => onSubtask(s.id)}
               />
-              {s.title}
+              <span className={s.done ? "struck" : ""}>{s.title}</span>
             </label>
           ))}
         </div>
@@ -252,14 +356,52 @@ export function HabitRow({
   onDate: (date: string) => void;
   onAdjust: (date: string, delta: number) => void;
 }) {
-  const value =
-    data.entries.find((e) => e.habitId === h.id && e.date === at)?.value || 0;
+  const [historyDate, setHistoryDate] = useState<string | null>(null);
+  const valueAt = (date: string) =>
+    data.entries.find((e) => e.habitId === h.id && e.date === date)?.value || 0;
+  const value = valueAt(at);
   const stats = streaks(h, data.entries, today, data.settings.weekStart);
   const weekly = h.period === "weekly";
   const total = weekly
     ? weeklyTotal(h, data.entries, at, data.settings.weekStart)
     : value;
   const history = daysBetween(addDays(at, -6), at);
+  function controls(date: string) {
+    const v = valueAt(date);
+    if (h.archived || date > today || !scheduled(h, date))
+      return (
+        <span className="meta">
+          {date > today
+            ? "Upcoming"
+            : h.archived
+              ? "Archived"
+              : "Not scheduled"}
+        </span>
+      );
+    if (h.kind === "check" && !weekly)
+      return (
+        <button
+          className={"check " + (v >= h.target ? "checked" : "")}
+          aria-label={`${v >= h.target ? "Reopen" : "Complete"} ${h.title}`}
+          aria-pressed={v >= h.target}
+          onClick={() => onEntry(date, v >= h.target ? 0 : h.target)}
+        >
+          {v >= h.target ? (
+            <Check size={16} aria-hidden="true" />
+          ) : (
+            <span className="check-ring" aria-hidden="true" />
+          )}
+        </button>
+      );
+    return (
+      <ValueControl
+        value={v}
+        label={`${h.title} quantity for ${date}`}
+        onSet={(n) => onEntry(date, n)}
+        onStep={(delta) => onAdjust(date, delta)}
+      />
+    );
+  }
   return (
     <div
       className="habit-record"
@@ -271,94 +413,68 @@ export function HabitRow({
       }
     >
       <div className="habit-row">
-        <button className="record-name" onClick={onEdit}>
-          {h.title}
-          {h.archived && <span>archived</span>}
-        </button>
-        <span
-          className="history"
-          role="img"
-          aria-label={history
-            .map(
-              (d) =>
-                `${d}: ${!scheduled(h, d) ? "not scheduled" : logged(h, data.entries, d) ? "complete" : "incomplete"}`,
-            )
-            .join("; ")}
-        >
-          {history.map((d) => (
-            <i
-              key={d}
-              className={
-                logged(h, data.entries, d)
-                  ? "filled"
-                  : !scheduled(h, d)
-                    ? "unscheduled"
-                    : ""
-              }
-            />
-          ))}
-        </span>
-        <span
-          className="streak"
-          title={`Current streak ${stats.current}; best ${stats.best}`}
-          aria-label={`Streak ${stats.current}, best ${stats.best}`}
-        >
-          {stats.current}
-          {weekly ? "w" : "d"}
-        </span>
-        {scheduled(h, at) && at <= today && !h.archived ? (
-          weekly ? (
-            <span className="weekly-quantity">
-              <span className="meta">
-                {total} / {h.target} this week
+        <div className="habit-identity">
+          <RecordName onClick={onEdit} icon={h.icon}>
+            {h.title}
+            {h.archived && <span className="meta"> · archived</span>}
+          </RecordName>
+          <div className="habit-meta">
+            {h.kind !== "check" && (
+              <span className={weekly ? "weekly-progress" : ""}>
+                {weekly
+                  ? `${total} / ${h.target} this week`
+                  : `${value} / ${h.target} ${h.unit}`}
               </span>
-              <span className="meta">
-                {at === today ? "Today" : at.slice(5)}
-              </span>
-              <ValueControl
-                value={value}
-                label={`${h.title} quantity for ${at}`}
-                onSet={(v) => onEntry(at, v)}
-                onStep={(delta) => onAdjust(at, delta)}
-              />
-            </span>
-          ) : h.kind === "check" ? (
-            <button
-              className={"check " + (value >= h.target ? "checked" : "")}
-              aria-label={`${value >= h.target ? "Reopen" : "Complete"} ${h.title}`}
-              aria-pressed={value >= h.target}
-              onClick={() => onEntry(at, value >= h.target ? 0 : h.target)}
+            )}
+            <span
+              className="history"
+              role="img"
+              aria-label={history
+                .map(
+                  (d) =>
+                    `${d}: ${!scheduled(h, d) ? "not scheduled" : logged(h, data.entries, d) ? "complete" : "incomplete"}`,
+                )
+                .join("; ")}
             >
-              {value >= h.target ? "✓" : "○"}
-            </button>
-          ) : (
-            <label className="quantity">
-              <input
-                aria-label={`${h.title} quantity for ${at}`}
-                key={`${at}:${value}`}
-                type="number"
-                min="0"
-                step="any"
-                defaultValue={value}
-                onBlur={(e) => {
-                  const n = Number(e.target.value);
-                  if (Number.isFinite(n) && n >= 0 && n !== value)
-                    onEntry(at, n);
-                }}
-              />
-              <span>
-                /{h.target} {h.unit}
-              </span>
-            </label>
-          )
-        ) : (
-          <span className="meta">{at > today ? "Upcoming" : "—"}</span>
-        )}
+              {history.map((d) => (
+                <i
+                  key={d}
+                  className={
+                    logged(h, data.entries, d)
+                      ? "filled"
+                      : !scheduled(h, d)
+                        ? "unscheduled"
+                        : ""
+                  }
+                />
+              ))}
+            </span>
+            <span
+              className="streak"
+              title={`Current streak ${stats.current}; best ${stats.best}`}
+              aria-label={`Streak ${stats.current}, best ${stats.best}`}
+            >
+              {stats.current}
+              {weekly ? "w" : "d"}
+            </span>
+          </div>
+        </div>
+        <div
+          className={weekly ? "habit-control weekly-quantity" : "habit-control"}
+        >
+          {weekly && (
+            <span className="entry-caption">
+              {at === today ? "Today" : dateLabel(at)}
+            </span>
+          )}
+          {controls(at)}
+        </div>
       </div>
       {month && (
-        <div className="habit-month">
-          <div className="month-meta">
-            <span>
+        <details className="habit-month">
+          <summary>
+            History
+            <span className="meta">
               {weekly
                 ? "Weekly"
                 : h.weekdays.length === 7
@@ -369,21 +485,54 @@ export function HabitRow({
               · best {stats.best}
               {weekly ? "w" : "d"}
             </span>
-          </div>
+          </summary>
           <div className="habit-grid">
+            {Array.from({ length: 7 }, (_, i) => (
+              <span className="day-name" key={`weekday-${i}`}>
+                {
+                  ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][
+                    (i + data.settings.weekStart) % 7
+                  ]
+                }
+              </span>
+            ))}
+            {Array.from(
+              {
+                length:
+                  (weekday(month.start) - data.settings.weekStart + 7) % 7,
+              },
+              (_, i) => (
+                <span key={`pad-${i}`} aria-hidden="true" />
+              ),
+            )}
             {daysBetween(month.start, month.end).map((d) => (
               <button
                 key={d}
-                disabled={!scheduled(h, d) || d > today}
+                disabled={!scheduled(h, d) || d > today || h.archived}
                 aria-label={`${h.title} ${d}${logged(h, data.entries, d) ? " complete" : ""}`}
-                className={logged(h, data.entries, d) ? "filled" : ""}
-                onClick={() => onDate(d)}
+                aria-pressed={historyDate === d}
+                className={`${logged(h, data.entries, d) ? "filled" : ""} ${historyDate === d ? "selected" : ""}`}
+                onClick={() => setHistoryDate(d)}
               >
                 {Number(d.slice(-2))}
               </button>
             ))}
           </div>
-        </div>
+          {historyDate && (
+            <div className="history-editor">
+              <div>
+                <DateValue date={historyDate} />
+                <button
+                  className="text-action"
+                  onClick={() => onDate(historyDate)}
+                >
+                  Open calendar
+                </button>
+              </div>
+              {controls(historyDate)}
+            </div>
+          )}
+        </details>
       )}
     </div>
   );
@@ -405,13 +554,19 @@ export function ProjectRow({
   return (
     <div className="project-record">
       <div className="progress-row">
-        <button className="record-name" onClick={onEdit}>
-          {p.title}
-          {p.status !== "active" && <span>{p.status}</span>}
-        </button>
-        <Meter value={progress} label={p.title} />
-        <span className="numeric">{Math.round(progress)}%</span>
-        <time className="meta">{p.deadline?.slice(5) || "—"}</time>
+        <div className="record-identity">
+          <RecordName onClick={onEdit} color={p.color}>
+            {p.title}
+          </RecordName>
+          <div className="record-meta">
+            {p.status !== "active" && <span>{p.status}</span>}
+            <DateValue date={p.deadline} />
+          </div>
+        </div>
+        <div className="progress-value">
+          <span className="numeric">{Math.round(progress)}%</span>
+          <Meter value={progress} label={p.title} />
+        </div>
       </div>
       {children}
     </div>
@@ -438,31 +593,39 @@ export function GoalRow({
   return (
     <div className="goal-record">
       <div className="progress-row">
-        <button className="record-name" onClick={onEdit}>
-          {g.title}
-          {g.archived && <span>archived</span>}
-        </button>
-        {!v.missing && (
-          <Meter value={(v.value / g.target) * 100} label={g.title} />
-        )}
-        {g.source === "manual" && !g.archived ? (
-          <>
+        <div className="record-identity">
+          <RecordName onClick={onEdit}>{g.title}</RecordName>
+          <div className="record-meta">
+            {g.archived && <span>Archived</span>}
+            <DateValue date={g.deadline} />
+            <span>
+              {g.source === "manual"
+                ? `Target ${g.target}`
+                : g.source === "habit"
+                  ? "Habit total"
+                  : "Project completion"}
+            </span>
+          </div>
+        </div>
+        <div className="goal-value">
+          {g.source === "manual" && !g.archived ? (
             <ValueControl
               value={g.value}
               label={`Progress for ${g.title}`}
               onSet={onSet}
               onStep={onStep}
             />
-            <span className="numeric">/ {g.target}</span>
-          </>
-        ) : (
-          <span className="numeric">
-            {v.missing
-              ? "Source removed"
-              : `${Math.round(v.value * 100) / 100} / ${g.target}${g.source === "project" ? "%" : ""}`}
-          </span>
-        )}
-        <time className="meta">{g.deadline?.slice(5) || "—"}</time>
+          ) : (
+            <span className="numeric">
+              {v.missing
+                ? "Source removed"
+                : `${Math.round(v.value * 100) / 100} / ${g.target}${g.source === "project" ? "%" : ""}`}
+            </span>
+          )}
+          {!v.missing && (
+            <Meter value={(v.value / g.target) * 100} label={g.title} />
+          )}
+        </div>
       </div>
       {!v.missing && sourceControl}
     </div>

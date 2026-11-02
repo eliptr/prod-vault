@@ -5,7 +5,7 @@ test("dark appearance has accessible contrast", async ({ page }) => {
   await page.goto("/");
   await loadSample(page);
   await expect(
-    page.getByRole("button", { name: "Read a little" }),
+    page.getByRole("button", { name: "Read a little", exact: true }),
   ).toBeVisible();
   await page.goto("/#settings");
   await page.getByLabel("Appearance").selectOption("dark");
@@ -78,7 +78,7 @@ test("waiting service worker update preserves records", async ({
   await page.goto("/");
   await loadSample(page);
   await expect(
-    page.getByRole("button", { name: "Read a little" }),
+    page.getByRole("button", { name: "Read a little", exact: true }),
   ).toBeVisible();
   await page.evaluate(async () => {
     await navigator.serviceWorker.ready;
@@ -90,12 +90,22 @@ test("waiting service worker update preserves records", async ({
   await expect(
     page.getByRole("button", { name: "Update available" }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "Update available" }).click();
+  await page
+    .getByRole("button", { name: "Read a little", exact: true })
+    .click();
   await expect(
-    page.getByRole("button", { name: "Read a little" }),
+    page.getByRole("button", { name: "Update available", includeHidden: true }),
+  ).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await Promise.all([
+    page.waitForEvent("load"),
+    page.getByRole("button", { name: "Update available" }).click(),
+  ]);
+  await expect(
+    page.getByRole("button", { name: "Read a little", exact: true }),
   ).toBeVisible();
   await page.reload();
   await expect(
-    page.getByRole("button", { name: "Read a little" }),
+    page.getByRole("button", { name: "Read a little", exact: true }),
   ).toBeVisible();
 });

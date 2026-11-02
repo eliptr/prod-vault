@@ -76,7 +76,15 @@ export default function CenteredDialog({
       node.close();
       Object.assign(body.style, saved);
       window.scrollTo(scrollX, scrollY);
-      previous?.focus({ preventScroll: true });
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
+      else
+        requestAnimationFrame(() =>
+          document
+            .querySelector<HTMLElement>(
+              ".quick-trigger, .section-heading .primary",
+            )
+            ?.focus({ preventScroll: true }),
+        );
     };
   }, []);
   return (
@@ -84,7 +92,10 @@ export default function CenteredDialog({
       ref={ref}
       className="dialog-shell"
       aria-labelledby={titleId}
-      onCancel={onClose}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
     >
       <div className="dialog-card">
         <header className="dialog-header">

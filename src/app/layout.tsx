@@ -2,7 +2,8 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 export const metadata: Metadata = {
   title: "Productivity Vault",
-  description: "A little space for steady progress.",
+  description:
+    "Personal habits, tasks, projects and goals. Stored on your device.",
   manifest: "/manifest.webmanifest",
   icons: { icon: "/icon-192.png", apple: "/icon-192.png" },
   appleWebApp: { capable: true, title: "Vault", statusBarStyle: "default" },

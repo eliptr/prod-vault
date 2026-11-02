@@ -57,3 +57,9 @@ Manual goals have minus/value/plus controls on Today and Goals. Linked goals exp
 - Export and restore a backup on the intended production address.
 
 The UI starts empty. “Settings → Load sample data” is an explicit opt-in, available only for an empty vault. No analytics or third-party runtime requests are included.
+
+## UI redesign and rollback
+
+The compact workspace uses shared rows, comfortable phone controls, a thumb-accessible Add action, inline habit history editing and restorable task/calendar view state. All original hash routes remain valid. No schema, backup-format or dependency changes accompany the redesign.
+
+The working version before this redesign is tagged `pre-ui-redesign-2026-11-02` on GitHub. See [REDESIGN-CHECKLIST.md](REDESIGN-CHECKLIST.md) for preservation checks and the production rollback reference, and [DESIGN.md](DESIGN.md) for the UI system. Redeploy an earlier version to the existing production origin so the browser can continue using its local records.
