@@ -1599,3 +1599,137 @@ legend {
 .habits-content > .toolbar {
   margin-bottom: 0;
 }
+
+.habit-list {
+  --habit-gap: 12px;
+  --habit-column-min: max(168px, 10rem, calc((100% - var(--habit-gap)) / 2));
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, var(--habit-column-min)), 1fr)
+  );
+  gap: 8px var(--habit-gap);
+}
+.habit-list > .empty {
+  grid-column: 1 / -1;
+}
+.habit-list > .habit-record.has-month {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 4px 0;
+  border-top: 1px solid var(--line);
+}
+.habit-list .has-month > .habit-row {
+  flex: 1;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0;
+  min-height: 0;
+}
+.habit-list .has-month .habit-identity {
+  flex: none;
+  width: 100%;
+}
+.habit-list .has-month .habit-control {
+  margin: 0;
+}
+.today-content .overview {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-areas: "habits goals" "tasks projects";
+}
+.overview > .section-habits {
+  grid-area: habits;
+}
+.overview > .section-goals {
+  grid-area: goals;
+}
+.overview > .section-tasks {
+  grid-area: tasks;
+}
+.overview > .section-projects {
+  grid-area: projects;
+}
+@media (max-width: 760px) {
+  .habits-content {
+    padding-inline: max(8px, env(safe-area-inset-left, 0px))
+      max(8px, env(safe-area-inset-right, 0px));
+  }
+  .habit-list {
+    --habit-gap: 8px;
+  }
+  .today-content .overview {
+    column-gap: 8px;
+    grid-template-areas: "habits goals" "tasks tasks" "projects projects";
+  }
+  .today-content :is(.section-habits, .section-goals) .habit-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px;
+    padding-inline: 0;
+  }
+  .today-content
+    :is(.section-habits, .section-goals)
+    .habit-row:has(.value-control)
+    > .habit-identity {
+    grid-column: 1 / -1;
+  }
+  .today-content
+    :is(.section-habits, .section-goals)
+    .habit-control:has(.value-control) {
+    grid-column: 1 / -1;
+    justify-self: end;
+  }
+  .today-content .section-goals .progress-row {
+    flex-wrap: wrap;
+    gap: 4px;
+    padding-inline: 4px;
+  }
+  .today-content .section-goals .record-identity {
+    flex-basis: 100%;
+  }
+  .today-content .section-goals .goal-value {
+    max-width: 100%;
+    margin-left: auto;
+  }
+}
+@media (max-width: 359px) {
+  .habit-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 760px) {
+  .today-content :is(.section-habits, .section-goals) > .section-title {
+    flex-wrap: wrap;
+    gap: 0;
+  }
+  .today-content :is(.section-habits, .section-goals) .empty {
+    flex-direction: column;
+    align-items: flex-start;
+    padding-inline: 4px;
+    gap: 0;
+  }
+}
+
+.habit-list .habit-meta > span {
+  max-width: 100%;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.habit-list .streak {
+  white-space: normal;
+}
+.habit-list .habit-grid {
+  grid-template-columns: repeat(7, max(24px, 1.4rem));
+  grid-template-rows: max(14px, 0.875rem);
+  grid-auto-rows: max(24px, 1.4rem);
+}
+.habit-list .heatmap-day {
+  line-height: 1;
+}
+.habit-list .habit-grid button {
+  justify-self: center;
+  align-self: center;
+}

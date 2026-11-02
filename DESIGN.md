@@ -17,3 +17,5 @@ No new dependencies, storage migration, domain-rule changes, remote assets or ex
 Habits use a flat monthly contribution view: weekday columns, week rows, neutral empty squares and three muted-green intensity levels. Check-off and weekly-day habits are binary; daily quantities show partial progress. Exact date values remain available through keyboard focus, labels and inline selection. Today has 8px phone gutters and 12px section gaps. The phone floating action is a single plus icon; duplicate Habits/Tasks page-header actions are desktop-only.
 
 Habit heatmaps sit below the habit heading and controls, with weeks progressing downward. Habits page heading and month/archive toolbar have no extra margin between them.
+
+Habits use two columns, with each current-day control directly above its heatmap and no visible Today caption. At widths below 360px the history list reflows to one column to retain 24px date targets. Today places Habits and Goals side by side on phones and desktops; phone Tasks and Projects each span the full width below them.

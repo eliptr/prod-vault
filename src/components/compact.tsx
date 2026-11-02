@@ -167,7 +167,7 @@ export function Section({
   children: ReactNode;
 }) {
   return (
-    <section className="section">
+    <section className={`section section-${title.toLowerCase()}`}>
       <header className="section-title">
         <h2>
           {title}
@@ -432,7 +432,6 @@ export function HabitRow({
         <div
           className={weekly ? "habit-control weekly-quantity" : "habit-control"}
         >
-          {month && <span className="entry-caption">Today</span>}
           {controls(at)}
         </div>
       </div>

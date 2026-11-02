@@ -772,6 +772,21 @@ export default function Vault() {
                   )}
                 </Section>
                 <Section
+                  title="Goals"
+                  count={activeGoals.length}
+                  action={() => newItem("goal")}
+                >
+                  {activeGoals.length ? (
+                    activeGoals.map(goalRow)
+                  ) : (
+                    <Empty
+                      text="No goals"
+                      action={() => newItem("goal")}
+                      label="Create goal"
+                    />
+                  )}
+                </Section>
+                <Section
                   title="Tasks"
                   count={todayTasks.length}
                   action={() => newItem("task")}
@@ -798,21 +813,6 @@ export default function Vault() {
                       text="No projects"
                       action={() => newItem("project")}
                       label="Create project"
-                    />
-                  )}
-                </Section>
-                <Section
-                  title="Goals"
-                  count={activeGoals.length}
-                  action={() => newItem("goal")}
-                >
-                  {activeGoals.length ? (
-                    activeGoals.map(goalRow)
-                  ) : (
-                    <Empty
-                      text="No goals"
-                      action={() => newItem("goal")}
-                      label="Create goal"
                     />
                   )}
                 </Section>

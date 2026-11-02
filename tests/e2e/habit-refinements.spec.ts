@@ -249,6 +249,21 @@ test("compact controls, icon-only add and phone header removal retain creation a
         expect(rect!.width).toBe(44);
         expect(rect!.height).toBe(44);
       } else await expect(header).toBeVisible();
+      if (screen === "habits") {
+        const records = page.locator(".habit-list > .has-month");
+        const first = await records.nth(0).boundingBox();
+        const second = await records.nth(1).boundingBox();
+        expect(Math.abs(first!.y - second!.y)).toBeLessThan(2);
+        expect(first!.x + first!.width).toBeLessThanOrEqual(second!.x);
+        await expect(page.locator(".habit-list .entry-caption")).toHaveCount(0);
+        const check = await records
+          .nth(1)
+          .locator(".habit-control")
+          .boundingBox();
+        const grid = await records.nth(1).locator(".habit-grid").boundingBox();
+        expect(grid!.y - check!.y - check!.height).toBeLessThanOrEqual(4);
+        expect(grid!.y).toBeGreaterThanOrEqual(check!.y + check!.height);
+      }
       await page
         .getByRole("button", {
           name: screen === "habits" ? "Add habit" : "Add task",
@@ -259,6 +274,16 @@ test("compact controls, icon-only add and phone header removal retain creation a
       await page.keyboard.press("Escape");
     }
     await page.goto("/#today");
+    const habitSection = await page
+      .locator(".overview > .section-habits")
+      .boundingBox();
+    const goalSection = await page
+      .locator(".overview > .section-goals")
+      .boundingBox();
+    expect(Math.abs(habitSection!.y - goalSection!.y)).toBeLessThan(2);
+    expect(habitSection!.x + habitSection!.width).toBeLessThanOrEqual(
+      goalSection!.x,
+    );
     const expected = width === 390 ? 28 : 24;
     for (const control of await page.locator(".value-control button").all()) {
       const rect = await control.boundingBox();
