@@ -64,6 +64,14 @@ test("Today orders overdue, today and daily tasks and keeps details beside dates
     const arrow = await row.locator(".expand svg").boundingBox();
     const edit = await row.locator(".edit-mark").boundingBox();
     const date = await row.locator("time").boundingBox();
+    const meta = await row.locator(".task-meta").boundingBox();
+    expect(Math.abs(date!.x - meta!.x)).toBeLessThan(2);
+    const daily = rows.nth(3);
+    const dailyLabel = await daily
+      .getByText("Daily", { exact: true })
+      .boundingBox();
+    const dailyDate = await daily.locator("time").boundingBox();
+    expect(dailyDate!.x - dailyLabel!.x - dailyLabel!.width).toBeLessThan(12);
     expect(
       Math.abs(arrow!.x + arrow!.width / 2 - edit!.x - edit!.width / 2),
     ).toBeLessThan(6);

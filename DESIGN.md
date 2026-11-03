@@ -27,3 +27,5 @@ Goals support optional one-time check-offs using manual progress 0/1 and target 
 One-time goals use the standard checked/empty-square states, with the toggle aligned to the title and a compact deadline below; no type caption. Touch input has no hover/pressed background highlights, while mouse hover and keyboard focus remain available. Routine pending writes are silent; pending state still protects updates and restores.
 
 Today task details controls share the date line, aligned beneath the edit icon. The main Today task list sorts overdue dates first, due-today tasks next, then remaining visible daily-display tasks, with ascending due dates inside each group.
+
+Today task dates remain left-aligned after project/Daily metadata; only the details control is pushed to the right beneath the edit icon.
