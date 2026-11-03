@@ -319,6 +319,7 @@ export default function Vault() {
         key={t.id}
         task={t}
         showPriority={page !== "today"}
+        inlineDetails={page === "today"}
         project={data!.projects.find((p) => p.id === t.projectId)?.title}
         today={today}
         onEdit={() => setEdit({ kind: "task", record: t })}
@@ -508,9 +509,15 @@ export default function Vault() {
       Date.now() - Date.parse(settings.reminderDismissed) > 7 * 86400000);
   const activeProjects = data.projects.filter((p) => p.status === "active");
   const activeGoals = data.goals.filter((g) => !g.archived);
-  const todayTasks = data.tasks.filter(
-    (t) => isTodayTask(t, today) || (!t.showDaily && t.due === today),
-  );
+  const todayTasks = data.tasks
+    .filter((t) => isTodayTask(t, today) || (!t.showDaily && t.due === today))
+    .sort((a, b) => {
+      const rank = (t: Task) =>
+        t.due && t.due < today ? 0 : t.due === today ? 1 : 2;
+      return (
+        rank(a) - rank(b) || (a.due || "9999").localeCompare(b.due || "9999")
+      );
+    });
   const projects = data.projects.filter(
     (p) => showArchive || p.status !== "archived",
   );

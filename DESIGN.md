@@ -25,3 +25,5 @@ Habit checks share the compact helper line with weekly progress and current/best
 Goals support optional one-time check-offs using manual progress 0/1 and target 1. Existing goals remain unchanged; the optional oneTime field is retained in v2 backups without a database migration. Goal and project overviews use a compact title row and an action/progress row; numeric goal controls are 24px wide beside the target. Project task disclosures share the progress row. Routine local-save toasts are removed globally; errors and explicit backup/update feedback remain.
 
 One-time goals use the standard checked/empty-square states, with the toggle aligned to the title and a compact deadline below; no type caption. Touch input has no hover/pressed background highlights, while mouse hover and keyboard focus remain available. Routine pending writes are silent; pending state still protects updates and restores.
+
+Today task details controls share the date line, aligned beneath the edit icon. The main Today task list sorts overdue dates first, due-today tasks next, then remaining visible daily-display tasks, with ascending due dates inside each group.

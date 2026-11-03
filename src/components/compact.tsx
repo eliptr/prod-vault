@@ -211,6 +211,7 @@ export function TaskRow({
   onToggle,
   onSubtask,
   showPriority = true,
+  inlineDetails = false,
 }: {
   task: Task;
   project?: string;
@@ -219,9 +220,31 @@ export function TaskRow({
   onToggle: () => void;
   onSubtask: (id: string) => void;
   showPriority?: boolean;
+  inlineDetails?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const detailsId = useId();
+  const detailsControl =
+    t.notes || t.subtasks.length > 0 ? (
+      <button
+        className="expand"
+        aria-label={`Details for ${t.title}`}
+        aria-expanded={expanded}
+        aria-controls={detailsId}
+        onClick={() => setExpanded(!expanded)}
+      >
+        {t.subtasks.length > 0 && (
+          <span>
+            {t.subtasks.filter((s) => s.done).length}/{t.subtasks.length}
+          </span>
+        )}
+        <ChevronDown
+          size={14}
+          aria-hidden="true"
+          className={expanded ? "rotated" : ""}
+        />
+      </button>
+    ) : null;
   return (
     <div className="task-row">
       <div className="task-main">
@@ -256,34 +279,18 @@ export function TaskRow({
               </span>
             )}
             {t.showDaily && <span>Daily</span>}
-            {t.due &&
-              (t.due === today ? (
-                <time dateTime={t.due}>Today</time>
-              ) : (
-                <DateValue date={t.due} overdue={t.due < today && !t.done} />
-              ))}
+            <span className="task-date-actions">
+              {t.due &&
+                (t.due === today ? (
+                  <time dateTime={t.due}>Today</time>
+                ) : (
+                  <DateValue date={t.due} overdue={t.due < today && !t.done} />
+                ))}
+              {inlineDetails && detailsControl}
+            </span>
           </div>
         </div>
-        {(t.notes || t.subtasks.length > 0) && (
-          <button
-            className="expand"
-            aria-label={`Details for ${t.title}`}
-            aria-expanded={expanded}
-            aria-controls={detailsId}
-            onClick={() => setExpanded(!expanded)}
-          >
-            {t.subtasks.length > 0 && (
-              <span>
-                {t.subtasks.filter((s) => s.done).length}/{t.subtasks.length}
-              </span>
-            )}
-            <ChevronDown
-              size={14}
-              aria-hidden="true"
-              className={expanded ? "rotated" : ""}
-            />
-          </button>
-        )}
+        {!inlineDetails && detailsControl}
       </div>
       {expanded && (
         <div className="task-details" id={detailsId}>
