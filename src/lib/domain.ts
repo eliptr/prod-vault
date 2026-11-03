@@ -86,6 +86,7 @@ export const goalSchema = z
     ...base,
     title: z.string().trim().min(1).max(100),
     source: z.enum(["manual", "project", "habit"]),
+    oneTime: z.boolean().optional(),
     sourceId: z.string().nullable(),
     target: z.number().positive(),
     value: z.number().min(0),
@@ -93,6 +94,14 @@ export const goalSchema = z
     deadline: dateSchema.nullable(),
     archived: z.boolean(),
   })
+  .refine(
+    (g) =>
+      !g.oneTime ||
+      (g.source === "manual" &&
+        g.target === 1 &&
+        (g.value === 0 || g.value === 1)),
+    "One-time goals must use a single check-off",
+  )
   .refine(
     (g) => !g.deadline || g.deadline >= g.startDate,
     "Deadline must be on or after the start date",

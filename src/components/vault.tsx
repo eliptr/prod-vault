@@ -194,10 +194,7 @@ export default function Vault() {
     document.addEventListener("pointerdown", outside);
     return () => document.removeEventListener("pointerdown", outside);
   }, [quickAdd]);
-  async function run(
-    action: () => Promise<unknown>,
-    success = "Saved on this device",
-  ) {
+  async function run(action: () => Promise<unknown>, success = "") {
     setPending((p) => p + 1);
     try {
       await action();
@@ -527,11 +524,7 @@ export default function Vault() {
       onEdit={() => setEdit({ kind: "project", record: p })}
     >
       {details && (
-        <details className="project-tasks">
-          <summary aria-label={`Tasks for ${p.title}`}>
-            Tasks ·{" "}
-            {data.tasks.filter((t) => t.projectId === p.id && !t.done).length}
-          </summary>
+        <div className="project-tasks">
           <button
             onClick={() => newItem("task", p.id)}
             aria-label={`Add task to ${p.title}`}
@@ -549,7 +542,7 @@ export default function Vault() {
                 .map(taskRow)}
             </details>
           )}
-        </details>
+        </div>
       )}
     </ProjectRow>
   );
@@ -1291,7 +1284,7 @@ export default function Vault() {
           data={data}
           today={today}
           onClose={() => setEdit(null)}
-          onSaved={() => setStatus("Saved on this device")}
+          onSaved={() => setStatus("")}
         />
       )}
       {importData && (

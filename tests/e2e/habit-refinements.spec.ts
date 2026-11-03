@@ -324,7 +324,14 @@ test("compact controls, icon-only add and phone header removal retain creation a
     const expected = width === 390 ? 28 : 24;
     for (const control of await page.locator(".value-control button").all()) {
       const rect = await control.boundingBox();
-      if (rect) expect(rect.width).toBe(expected);
+      if (rect)
+        expect(rect.width).toBe(
+          (await control
+            .locator("xpath=ancestor::div[contains(@class, 'goal-record')]")
+            .count())
+            ? 24
+            : expected,
+        );
     }
     expect(
       await page

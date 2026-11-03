@@ -84,7 +84,11 @@ export default function Editor({
   const [dirty, setDirty] = useState(false);
   const [busy, setBusy] = useState(false);
   const [source, setSource] = useState(
-    edit.kind === "goal" ? (edit.record as Goal)?.source || "manual" : "manual",
+    edit.kind === "goal"
+      ? (edit.record as Goal)?.oneTime
+        ? "once"
+        : (edit.record as Goal)?.source || "manual"
+      : "manual",
   );
   const [kind, setKind] = useState(
     (edit.record as Habit)?.period === "weekly"
@@ -180,10 +184,20 @@ export default function Editor({
         await db.goals.put(
           goalSchema.parse({
             ...base,
-            source,
-            sourceId: source === "manual" ? null : s("sourceId") || null,
-            target: source === "project" ? 100 : Number(s("target")),
-            value: Number(s("value") || 0),
+            source: source === "once" ? "manual" : source,
+            oneTime: source === "once",
+            sourceId:
+              source === "manual" || source === "once"
+                ? null
+                : s("sourceId") || null,
+            target:
+              source === "once"
+                ? 1
+                : source === "project"
+                  ? 100
+                  : Number(s("target")),
+            value:
+              source === "once" ? (g?.value ? 1 : 0) : Number(s("value") || 0),
             startDate: s("startDate"),
             deadline: s("deadline") || null,
             archived: g?.archived || false,
@@ -612,14 +626,15 @@ export default function Editor({
                 <select
                   name="source"
                   value={source}
-                  onChange={(e) => setSource(e.target.value as Goal["source"])}
+                  onChange={(e) => setSource(e.target.value)}
                 >
                   <option value="manual">Manual number</option>
+                  <option value="once">One-time check-off</option>
                   <option value="project">Project completion</option>
                   <option value="habit">Habit total</option>
                 </select>
               </Field>
-              {source !== "manual" && (
+              {source !== "manual" && source !== "once" && (
                 <Field>
                   {source === "habit" ? "Habit" : "Project"}
                   <select
@@ -639,7 +654,7 @@ export default function Editor({
                 </Field>
               )}
               <div className="form-row">
-                {source !== "project" && (
+                {source !== "project" && source !== "once" && (
                   <Field>
                     Target
                     <input

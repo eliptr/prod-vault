@@ -9,6 +9,7 @@ import {
   occurrences,
   projectProgress,
   goalProgress,
+  goalSchema,
   backupSchema,
   defaults,
   weeklyTotal,
@@ -20,6 +21,39 @@ import {
   type Backup,
 } from "../src/lib/domain";
 const stamp = "2026-10-01T12:00:00.000Z";
+test("one-time goal validation preserves legacy goals and requires binary manual progress", () => {
+  const legacy = {
+    id: "once",
+    createdAt: stamp,
+    updatedAt: stamp,
+    title: "Appointment",
+    source: "manual",
+    sourceId: null,
+    target: 1,
+    value: 0,
+    startDate: "2026-11-01",
+    deadline: null,
+    archived: false,
+  };
+  assert.equal(goalSchema.parse(legacy).oneTime, undefined);
+  assert.equal(
+    goalSchema.parse({ ...legacy, oneTime: true, value: 1 }).value,
+    1,
+  );
+  assert.equal(
+    goalSchema.safeParse({ ...legacy, oneTime: true, value: 2 }).success,
+    false,
+  );
+  assert.equal(
+    goalSchema.safeParse({
+      ...legacy,
+      oneTime: true,
+      source: "habit",
+      sourceId: "h",
+    }).success,
+    false,
+  );
+});
 const habit: Habit = {
   id: "h",
   createdAt: stamp,

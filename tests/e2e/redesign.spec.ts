@@ -213,7 +213,7 @@ test("all screens reflow with long records in both themes", async ({
     ),
   ).toBe(true);
   const targets = await page
-    .locator(".check, .quick-trigger")
+    .locator(".check:visible, .quick-trigger:visible")
     .evaluateAll((nodes) =>
       nodes
         .map((n) => n.getBoundingClientRect())

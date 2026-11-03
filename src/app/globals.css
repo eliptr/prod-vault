@@ -1806,3 +1806,95 @@ legend {
     padding-inline: 4px;
   }
 }
+
+.compact-record {
+  padding: 4px 6px;
+}
+.compact-record-header,
+.compact-record-footer {
+  display: flex;
+  align-items: center;
+  gap: 4px 8px;
+  min-width: 0;
+}
+.compact-record-header {
+  flex-wrap: wrap;
+}
+.compact-record-header > .record-name {
+  flex: 1;
+  min-width: 0;
+}
+.compact-record-header > .record-meta {
+  margin-left: auto;
+}
+.compact-record-footer {
+  min-height: 32px;
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+.compact-record-footer > .goal-actions {
+  display: contents;
+}
+.compact-record-footer .goal-value {
+  margin-left: auto;
+  min-width: 0;
+  max-width: 100%;
+  gap: 2px;
+}
+.compact-record-footer .goal-value > .meter {
+  height: 2px;
+}
+.compact-record-footer .progress-value {
+  margin-left: auto;
+  flex-direction: row;
+  gap: 6px;
+}
+.compact-record-footer .progress-value .meter {
+  width: 42px;
+}
+.compact-record-footer .value-control {
+  gap: 0;
+}
+.compact-record-footer .value-control button {
+  width: 24px;
+  min-width: 24px;
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+}
+.compact-record-footer .value-control input {
+  height: 28px;
+  min-height: 28px;
+  padding: 0;
+  font-size: 0.75rem;
+}
+.compact-record-footer .record-meta {
+  font-size: 0.6875rem;
+}
+.project-tasks-toggle {
+  font-size: 0.6875rem;
+  min-height: 32px;
+  padding: 0;
+  gap: 3px;
+  color: var(--green);
+}
+.compact-record-footer .goal-check {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+}
+@media (max-width: 760px) {
+  .today-content .compact-record {
+    padding-inline: 4px;
+  }
+  .today-content .compact-record-header > .record-meta:not(:empty) {
+    margin-left: 0;
+  }
+  .today-content .compact-record-header > .record-meta {
+    font-size: 0.6875rem;
+  }
+  .today-content .compact-record-footer {
+    gap: 4px;
+  }
+}

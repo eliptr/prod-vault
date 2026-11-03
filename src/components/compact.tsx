@@ -478,24 +478,49 @@ export function ProjectRow({
   children?: ReactNode;
 }) {
   const progress = projectProgress(p.id, data.tasks, today);
+  const [expanded, setExpanded] = useState(false);
+  const tasksId = useId();
+  const count = data.tasks.filter(
+    (t) => t.projectId === p.id && !t.done,
+  ).length;
   return (
-    <div className="project-record">
-      <div className="progress-row">
-        <div className="record-identity">
-          <RecordName onClick={onEdit} color={p.color}>
-            {p.title}
-          </RecordName>
-          <div className="record-meta">
-            {p.status !== "active" && <span>{p.status}</span>}
-            <DateValue date={p.deadline} />
-          </div>
-        </div>
+    <div className="project-record compact-record">
+      <div className="compact-record-header">
+        <RecordName onClick={onEdit} color={p.color}>
+          {p.title}
+        </RecordName>
+        <span className="record-meta">
+          {p.status !== "active" && <span>{p.status}</span>}
+          <DateValue date={p.deadline} />
+        </span>
+      </div>
+      <div className="compact-record-footer">
+        {children && (
+          <button
+            className="project-tasks-toggle"
+            aria-label={`Tasks for ${p.title}`}
+            aria-expanded={expanded}
+            aria-controls={tasksId}
+            onClick={() => setExpanded(!expanded)}
+          >
+            <ChevronDown
+              size={12}
+              className={expanded ? "rotated" : ""}
+              aria-hidden="true"
+            />
+            Tasks &middot; {count}
+          </button>
+        )}
         <div className="progress-value">
           <span className="numeric">{Math.round(progress)}%</span>
           <Meter value={progress} label={p.title} />
         </div>
       </div>
-      {children}
+      {children && (
+        <div id={tasksId} hidden={!expanded}>
+          {children}
+        </div>
+      )}
     </div>
   );
 }
@@ -520,22 +545,20 @@ export function GoalRow({
   const sourceId = useId();
   const v = goalProgress(g, data, today);
   return (
-    <div className="goal-record">
-      <div className="progress-row">
-        <div className="record-identity">
-          <RecordName onClick={onEdit}>{g.title}</RecordName>
-          <div className="record-meta">
-            {g.archived && <span>Archived</span>}
-            <DateValue date={g.deadline} />
-            <span>
-              {g.source === "manual"
-                ? `Target ${g.target}`
-                : g.source === "habit"
-                  ? "Habit total"
-                  : "Project completion"}
-            </span>
-          </div>
-        </div>
+    <div className="goal-record compact-record">
+      <div className="compact-record-header">
+        <RecordName onClick={onEdit}>{g.title}</RecordName>
+        <span className="record-meta">
+          {g.archived && <span>Archived</span>}
+          <DateValue date={g.deadline} />
+        </span>
+      </div>
+      <div className="compact-record-footer">
+        {g.source === "manual" && (
+          <span className="record-meta">
+            {g.oneTime ? "One-time" : `Target ${g.target}`}
+          </span>
+        )}
         <div className="goal-actions">
           {!v.missing && sourceControl && (
             <button
@@ -553,7 +576,17 @@ export function GoalRow({
             </button>
           )}
           <div className="goal-value">
-            {g.source === "manual" && !g.archived ? (
+            {g.oneTime ? (
+              <button
+                className={"check goal-check" + (g.value > 0 ? " done" : "")}
+                aria-label={`${g.value > 0 ? "Reopen" : "Complete"} ${g.title}`}
+                aria-pressed={g.value > 0}
+                disabled={g.archived}
+                onClick={() => onSet(g.value > 0 ? 0 : 1)}
+              >
+                <Check size={15} aria-hidden="true" />
+              </button>
+            ) : g.source === "manual" && !g.archived ? (
               <ValueControl
                 value={g.value}
                 label={`Progress for ${g.title}`}
@@ -567,7 +600,7 @@ export function GoalRow({
                   : `${Math.round(v.value * 100) / 100} / ${g.target}${g.source === "project" ? "%" : ""}`}
               </span>
             )}
-            {!v.missing && (
+            {!v.missing && !g.oneTime && (
               <Meter value={(v.value / g.target) * 100} label={g.title} />
             )}
           </div>
