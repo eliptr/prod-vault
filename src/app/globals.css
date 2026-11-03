@@ -83,14 +83,12 @@ button {
   background: transparent;
   cursor: pointer;
 }
-button:hover,
-a:hover,
-summary:hover {
-  background: var(--subtle);
-}
-button:active,
-a:active {
-  background: var(--soft);
+@media (hover: hover) and (pointer: fine) {
+  button:hover,
+  a:hover,
+  summary:hover {
+    background: var(--subtle);
+  }
 }
 button:disabled {
   opacity: 0.5;
@@ -162,9 +160,11 @@ label {
   font-weight: 600;
   padding-inline: 12px;
 }
-.primary:hover {
-  background: var(--green);
-  filter: brightness(0.94);
+@media (hover: hover) and (pointer: fine) {
+  .primary:hover {
+    background: var(--green);
+    filter: brightness(0.94);
+  }
 }
 .meta,
 .hint,
@@ -559,10 +559,6 @@ main {
   background: transparent;
   color: var(--text);
   -moz-appearance: textfield;
-}
-.value-control:focus-within {
-  border-radius: 4px;
-  background: var(--subtle);
 }
 .value-control input::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -1897,4 +1893,23 @@ legend {
   .today-content .compact-record-footer {
     gap: 4px;
   }
+}
+
+.one-time-goal {
+  padding: 2px 4px;
+}
+.one-time-goal .compact-record-header {
+  flex-wrap: nowrap;
+  gap: 4px;
+}
+.one-time-goal .goal-check {
+  width: 32px;
+  min-width: 32px;
+  height: 32px;
+  min-height: 32px;
+}
+.one-time-goal .one-time-meta {
+  padding: 0 4px 2px;
+  margin-top: -2px;
+  font-size: 0.6875rem;
 }

@@ -1188,7 +1188,7 @@ export default function Vault() {
         </div>
       </main>
       <div className="save-status" role="status" aria-live="polite">
-        {pending ? "Saving…" : status}
+        {status}
       </div>
       {["today", "habits", "tasks", "calendar", "projects", "goals"].includes(
         page,

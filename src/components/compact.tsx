@@ -544,6 +544,33 @@ export function GoalRow({
   const [sourceExpanded, setSourceExpanded] = useState(false);
   const sourceId = useId();
   const v = goalProgress(g, data, today);
+  if (g.oneTime)
+    return (
+      <div className="goal-record compact-record one-time-goal">
+        <div className="compact-record-header">
+          <RecordName onClick={onEdit}>{g.title}</RecordName>
+          <button
+            className={"check goal-check" + (g.value > 0 ? " checked" : "")}
+            aria-label={`${g.value > 0 ? "Reopen" : "Complete"} ${g.title}`}
+            aria-pressed={g.value > 0}
+            disabled={g.archived}
+            onClick={() => onSet(g.value > 0 ? 0 : 1)}
+          >
+            {g.value > 0 ? (
+              <Check size={16} aria-hidden="true" />
+            ) : (
+              <span className="check-ring" aria-hidden="true" />
+            )}
+          </button>
+        </div>
+        {(g.deadline || g.archived) && (
+          <div className="record-meta one-time-meta">
+            <DateValue date={g.deadline} />
+            {g.archived && <span>Archived</span>}
+          </div>
+        )}
+      </div>
+    );
   return (
     <div className="goal-record compact-record">
       <div className="compact-record-header">
@@ -555,9 +582,7 @@ export function GoalRow({
       </div>
       <div className="compact-record-footer">
         {g.source === "manual" && (
-          <span className="record-meta">
-            {g.oneTime ? "One-time" : `Target ${g.target}`}
-          </span>
+          <span className="record-meta">{`Target ${g.target}`}</span>
         )}
         <div className="goal-actions">
           {!v.missing && sourceControl && (
@@ -576,17 +601,7 @@ export function GoalRow({
             </button>
           )}
           <div className="goal-value">
-            {g.oneTime ? (
-              <button
-                className={"check goal-check" + (g.value > 0 ? " done" : "")}
-                aria-label={`${g.value > 0 ? "Reopen" : "Complete"} ${g.title}`}
-                aria-pressed={g.value > 0}
-                disabled={g.archived}
-                onClick={() => onSet(g.value > 0 ? 0 : 1)}
-              >
-                <Check size={15} aria-hidden="true" />
-              </button>
-            ) : g.source === "manual" && !g.archived ? (
+            {g.source === "manual" && !g.archived ? (
               <ValueControl
                 value={g.value}
                 label={`Progress for ${g.title}`}
@@ -600,7 +615,7 @@ export function GoalRow({
                   : `${Math.round(v.value * 100) / 100} / ${g.target}${g.source === "project" ? "%" : ""}`}
               </span>
             )}
-            {!v.missing && !g.oneTime && (
+            {!v.missing && (
               <Meter value={(v.value / g.target) * 100} label={g.title} />
             )}
           </div>

@@ -5,12 +5,14 @@ import { loadSample } from "./helpers";
 test("one-time goals persist offline and round trip through backup without save notices", async ({
   page,
   context,
+  isMobile,
 }) => {
   await loadSample(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/#today");
   await page.getByRole("button", { name: "Add goal", exact: true }).click();
   await page.getByLabel("Name", { exact: true }).fill("Book appointment");
+  await page.getByLabel("Deadline", { exact: true }).fill("2026-12-31");
   await page
     .getByLabel("Progress source", { exact: true })
     .selectOption("once");
@@ -19,6 +21,25 @@ test("one-time goals persist offline and round trip through backup without save 
   await expect(
     page.getByText("Saved on this device", { exact: true }),
   ).toHaveCount(0);
+  const check = page.getByRole("button", {
+    name: "Complete Book appointment",
+    exact: true,
+  });
+  await expect(check.locator(".check-ring")).toHaveCount(1);
+  await expect(
+    page.locator(".one-time-goal").getByText("One-time", { exact: true }),
+  ).toHaveCount(0);
+  const titleBox = await page
+    .locator(".one-time-goal .record-name")
+    .boundingBox();
+  const checkBox = await check.boundingBox();
+  expect(
+    Math.abs(
+      titleBox!.y + titleBox!.height / 2 - checkBox!.y - checkBox!.height / 2,
+    ),
+  ).toBeLessThan(2);
+  const dateBox = await page.locator(".one-time-goal time").boundingBox();
+  expect(dateBox!.y - titleBox!.y - titleBox!.height).toBeLessThan(5);
   const project = page.locator(".section-projects .project-record").first();
   const toggle = await project.locator(".project-tasks-toggle").boundingBox();
   const progress = await project.locator(".progress-value").boundingBox();
@@ -38,6 +59,29 @@ test("one-time goals persist offline and round trip through backup without save 
   await expect(
     page.getByRole("button", { name: "Reopen Book appointment", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
+  if (isMobile)
+    await expect(
+      page.getByRole("button", {
+        name: "Reopen Book appointment",
+        exact: true,
+      }),
+    ).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(page.locator(".save-status")).toBeEmpty();
+  await page.screenshot({
+    path: `test-results/goal-toggle-${test.info().project.name}.png`,
+    fullPage: true,
+    scale: "css",
+  });
+  await expect(
+    page
+      .getByRole("button", { name: "Reopen Book appointment", exact: true })
+      .locator("svg"),
+  ).toHaveCount(1);
+  await expect(
+    page
+      .getByRole("button", { name: "Reopen Book appointment", exact: true })
+      .locator(".check-ring"),
+  ).toHaveCount(0);
   await page.reload();
   await expect(
     page.getByRole("button", { name: "Reopen Book appointment", exact: true }),
