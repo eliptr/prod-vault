@@ -27,6 +27,7 @@ import {
   todayIn,
   backupSchema,
   isTodayTask,
+  sortTaskList,
   type Backup,
   type Habit,
   type Task,
@@ -81,6 +82,7 @@ export default function Vault() {
   const [error, setError] = useState("");
   const [status, setStatus] = useState("");
   const [quickAdd, setQuickAdd] = useState(false);
+  const [lowExpanded, setLowExpanded] = useState(false);
   const quickRef = useRef<HTMLDivElement>(null);
   const [clock, setClock] = useState(new Date());
   const [online, setOnline] = useState(true);
@@ -238,8 +240,8 @@ export default function Vault() {
   const doneHabits = todayHabits.filter((h) =>
     completed(h, data.entries, today, settings.weekStart),
   ).length;
-  const visibleTasks = data.tasks
-    .filter((t) =>
+  const visibleTasks = sortTaskList(
+    data.tasks.filter((t) =>
       filter === "Completed"
         ? t.done
         : !t.done &&
@@ -250,8 +252,15 @@ export default function Vault() {
               : filter === "Upcoming"
                 ? !!t.due && t.due > today
                 : !!t.due && t.due < today),
-    )
-    .sort((a, b) => (a.due || "").localeCompare(b.due || ""));
+    ),
+    data.projects,
+  );
+  const lowTasks =
+    filter === "Inbox" ? visibleTasks.filter((t) => t.priority === "low") : [];
+  const mainTasks =
+    filter === "Inbox"
+      ? visibleTasks.filter((t) => t.priority !== "low")
+      : visibleTasks;
   const overdue = data.tasks.filter((t) => !t.done && t.due && t.due < today);
   const newItem = (kind: Edit["kind"], projectId?: string) => {
     setQuickAdd(false);
@@ -320,6 +329,7 @@ export default function Vault() {
         task={t}
         showPriority={page !== "today"}
         inlineDetails={page === "today"}
+        showOverdueLabel={page !== "today"}
         project={data!.projects.find((p) => p.id === t.projectId)?.title}
         today={today}
         onEdit={() => setEdit({ kind: "task", record: t })}
@@ -856,7 +866,29 @@ export default function Vault() {
               </div>
               <div className="panel">
                 {visibleTasks.length ? (
-                  visibleTasks.map(taskRow)
+                  <>
+                    {mainTasks.map(taskRow)}
+                    {lowTasks.length > 0 && (
+                      <div className="low-priority-section">
+                        <button
+                          className="low-priority-toggle"
+                          aria-expanded={lowExpanded}
+                          aria-controls="inbox-low-tasks"
+                          onClick={() => setLowExpanded(!lowExpanded)}
+                        >
+                          <ChevronRight
+                            size={12}
+                            className={lowExpanded ? "low-expanded" : ""}
+                            aria-hidden="true"
+                          />
+                          Low priority · {lowTasks.length}
+                        </button>
+                        <div id="inbox-low-tasks" hidden={!lowExpanded}>
+                          {lowTasks.map(taskRow)}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <Empty
                     text={`No ${filter.toLowerCase()} tasks`}

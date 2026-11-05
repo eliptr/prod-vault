@@ -321,6 +321,26 @@ export function isTodayTask(t: Task, today: string) {
     !t.done && (t.showDaily || t.due === today || (!!t.due && t.due < today))
   );
 }
+export function sortTaskList(tasks: Task[], projects: Project[]) {
+  const priority = { high: 0, medium: 1, low: 2 };
+  const names = new Map(projects.map((p) => [p.id, p.title]));
+  const collator = new Intl.Collator("en", { sensitivity: "base" });
+  return [...tasks].sort((a, b) => {
+    const rank = priority[a.priority] - priority[b.priority];
+    if (rank) return rank;
+    if (a.projectId !== b.projectId) {
+      if (!a.projectId) return -1;
+      if (!b.projectId) return 1;
+      const project = collator.compare(
+        names.get(a.projectId) || "",
+        names.get(b.projectId) || "",
+      );
+      if (project) return project;
+      return a.projectId.localeCompare(b.projectId);
+    }
+    return (a.due || "9999-99-99").localeCompare(b.due || "9999-99-99");
+  });
+}
 export function normalizeBackup(input: unknown) {
   const b = backupSchema.parse(input);
   for (const template of b.templates) {

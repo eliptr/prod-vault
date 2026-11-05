@@ -75,7 +75,7 @@ test("weekly days, historical corrections, goals and backups agree without rewri
     page
       .locator(".overview > .section")
       .first()
-      .getByText("2 / 4 this week", { exact: true }),
+      .getByText("2 / 4", { exact: true }),
   ).toBeVisible();
   await expect(page.getByText("2 / 10", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Complete Gym", exact: true }).click();
@@ -83,14 +83,14 @@ test("weekly days, historical corrections, goals and backups agree without rewri
     page
       .locator(".overview > .section")
       .first()
-      .getByText("3 / 4 this week", { exact: true }),
+      .getByText("3 / 4", { exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "Reopen Gym", exact: true }).click();
   await expect(
     page
       .locator(".overview > .section")
       .first()
-      .getByText("2 / 4 this week", { exact: true }),
+      .getByText("2 / 4", { exact: true }),
   ).toBeVisible();
   await page.goto("/#habits");
   const grid = page.getByRole("group", {
@@ -191,7 +191,7 @@ test("monthly heatmaps support keyboard movement, selection and week starts", as
   const rowBox = await page.locator(".has-month > .habit-row").boundingBox();
   expect(gridBox!.y).toBeGreaterThanOrEqual(rowBox!.y + rowBox!.height);
   expect(gridBox!.width).toBe(168);
-  expect(gridBox!.height).toBeLessThanOrEqual(158);
+  expect(gridBox!.height).toBeLessThanOrEqual(134);
 
   await grid.locator('[tabindex="0"]').focus();
   await page.keyboard.press("Home");

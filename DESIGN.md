@@ -29,3 +29,5 @@ One-time goals use the standard checked/empty-square states, with the toggle ali
 Today task details controls share the date line, aligned beneath the edit icon. The main Today task list sorts overdue dates first, due-today tasks next, then remaining visible daily-display tasks, with ascending due dates inside each group.
 
 Today task dates remain left-aligned after project/Daily metadata; only the details control is pushed to the right beneath the edit icon.
+
+Weekly habit progress follows the streak in every shared row, without the visible this-week suffix. Monthly heatmaps retain 24px columns and use 20px date rows with 10x6px activity marks, expanding with enlarged text. Today overdue task dates retain red styling and accessible overdue labels without a visible prefix. Tasks filters sort priority first, then unassigned/project name, then due date; duplicate project names use IDs to retain distinct groups. Inbox low-priority tasks are initially collapsed with counts and session-only expansion state. No storage or backup changes.

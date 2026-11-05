@@ -16,11 +16,70 @@ import {
   weekStartFor,
   isTodayTask,
   normalizeBackup,
+  sortTaskList,
+  type Task,
+  type Project,
   type Habit,
   type Template,
   type Backup,
 } from "../src/lib/domain";
 const stamp = "2026-10-01T12:00:00.000Z";
+test("task list sorts priorities, unassigned tasks, project groups, dates and stable ties", () => {
+  const projects: Project[] = ["z", "a2", "a1"].map((id) => ({
+    id,
+    title: id === "z" ? "Zeta" : "Alpha",
+    createdAt: stamp,
+    updatedAt: stamp,
+    description: "",
+    color: "#123456",
+    deadline: null,
+    status: "active",
+  }));
+  const task = (
+    id: string,
+    priority: Task["priority"],
+    projectId: string | null,
+    due: string | null = null,
+  ): Task => ({
+    id,
+    title: id,
+    priority,
+    projectId,
+    due,
+    createdAt: stamp,
+    updatedAt: stamp,
+    notes: "",
+    done: false,
+    completedAt: null,
+    subtasks: [],
+    templateId: null,
+    showDaily: false,
+  });
+  const tasks = [
+    task("low", "low", null),
+    task("zeta", "high", "z"),
+    task("alpha2", "high", "a2"),
+    task("alpha1-undated", "high", "a1"),
+    task("alpha1-dated", "high", "a1", "2026-11-03"),
+    task("tie1", "high", null),
+    task("tie2", "high", null),
+    task("medium", "medium", null),
+  ];
+  assert.deepEqual(
+    sortTaskList(tasks, projects).map((t) => t.id),
+    [
+      "tie1",
+      "tie2",
+      "alpha1-dated",
+      "alpha1-undated",
+      "alpha2",
+      "zeta",
+      "medium",
+      "low",
+    ],
+  );
+  assert.equal(tasks[0].id, "low");
+});
 test("one-time goal validation preserves legacy goals and requires binary manual progress", () => {
   const legacy = {
     id: "once",

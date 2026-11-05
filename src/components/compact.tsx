@@ -212,6 +212,7 @@ export function TaskRow({
   onSubtask,
   showPriority = true,
   inlineDetails = false,
+  showOverdueLabel = true,
 }: {
   task: Task;
   project?: string;
@@ -221,6 +222,7 @@ export function TaskRow({
   onSubtask: (id: string) => void;
   showPriority?: boolean;
   inlineDetails?: boolean;
+  showOverdueLabel?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const detailsId = useId();
@@ -284,7 +286,11 @@ export function TaskRow({
                 (t.due === today ? (
                   <time dateTime={t.due}>Today</time>
                 ) : (
-                  <DateValue date={t.due} overdue={t.due < today && !t.done} />
+                  <DateValue
+                    date={t.due}
+                    overdue={t.due < today && !t.done}
+                    showOverdueLabel={showOverdueLabel}
+                  />
                 ))}
               {inlineDetails && detailsControl}
             </span>
@@ -399,12 +405,8 @@ export function HabitRow({
             {h.archived && <span className="meta"> · archived</span>}
           </RecordName>
           <div className="habit-meta">
-            {h.kind !== "check" && (
-              <span className={weekly ? "weekly-progress" : ""}>
-                {weekly
-                  ? `${total} / ${h.target}${month ? "" : " this week"}`
-                  : `${value} / ${h.target} ${h.unit}`}
-              </span>
+            {h.kind !== "check" && !weekly && (
+              <span>{`${value} / ${h.target} ${h.unit}`}</span>
             )}
             {!month && (
               <span
@@ -440,6 +442,14 @@ export function HabitRow({
                 ? `Streak ${stats.current} / ${stats.best}${weekly ? "w" : "d"}`
                 : `${stats.current}${weekly ? "w" : "d"}`}
             </span>
+            {weekly && (
+              <span
+                className="weekly-progress"
+                aria-label={`${total} of ${h.target} days this week`}
+              >
+                {total} / {h.target}
+              </span>
+            )}
             {inlineCheck && <div className="habit-control">{controls(at)}</div>}
           </div>
           {weekly &&

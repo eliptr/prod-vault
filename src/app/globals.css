@@ -612,7 +612,7 @@ main {
   display: grid;
   grid-template-columns: repeat(7, 24px);
   grid-template-rows: 14px;
-  grid-auto-rows: 24px;
+  grid-auto-rows: 20px;
   grid-auto-flow: row;
   gap: 0;
   width: max-content;
@@ -627,8 +627,8 @@ main {
 .habit-grid button {
   min-width: 24px;
   width: 24px;
-  min-height: 24px;
-  height: 24px;
+  min-height: 20px;
+  height: 20px;
   padding: 0;
   border: 0;
   border-radius: 3px;
@@ -636,7 +636,7 @@ main {
 .heatmap-square {
   display: block;
   width: 10px;
-  height: 10px;
+  height: 6px;
   background: var(--line);
   border-radius: 2px;
 }
@@ -1718,7 +1718,7 @@ legend {
 .habit-list .habit-grid {
   grid-template-columns: repeat(7, max(24px, 1.4rem));
   grid-template-rows: max(14px, 0.875rem);
-  grid-auto-rows: max(24px, 1.4rem);
+  grid-auto-rows: max(20px, 1.25rem);
 }
 .habit-list .heatmap-day {
   line-height: 1;
@@ -1943,4 +1943,28 @@ legend {
   flex-direction: row;
   gap: 2px;
   font-size: 0.625rem;
+}
+
+.weekly-progress::before {
+  content: "·";
+  margin-right: 4px;
+}
+.low-priority-section {
+  border-top: 1px solid var(--line);
+}
+.low-priority-toggle {
+  width: 100%;
+  justify-content: flex-start;
+  min-height: 36px;
+  padding: 4px 8px;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.low-priority-toggle .low-expanded {
+  transform: rotate(90deg);
+}
+@media (max-width: 760px) {
+  .low-priority-toggle {
+    min-height: 44px;
+  }
 }

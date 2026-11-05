@@ -11,9 +11,11 @@ export function dateLabel(date: string) {
 export function DateValue({
   date,
   overdue = false,
+  showOverdueLabel = true,
 }: {
   date?: string | null;
   overdue?: boolean;
+  showOverdueLabel?: boolean;
 }) {
   return date ? (
     <time
@@ -24,7 +26,7 @@ export function DateValue({
       })}
       className={overdue ? "overdue" : "meta"}
     >
-      {overdue && "Overdue · "}
+      {overdue && showOverdueLabel && "Overdue · "}
       {dateLabel(date)}
     </time>
   ) : null;
