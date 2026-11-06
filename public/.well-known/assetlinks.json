@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.eliptr.productivityvault.test",
+      "sha256_cert_fingerprints": [
+        "88:26:1B:EF:1F:A6:AA:85:8E:2F:F3:48:98:6D:CA:09:12:2A:10:1F:BE:92:7F:D8:BF:C9:5D:C3:0B:1D:DF:CA"
+      ]
+    }
+  }
+]
