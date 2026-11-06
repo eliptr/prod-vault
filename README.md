@@ -50,6 +50,8 @@ Manual goals have minus/value/plus controls on Today and Goals. Linked goals exp
 
 ## Release checklist
 
+See [Android packaging](android/README.md) for the private APK and Google Play bundle workflow.
+
 - Run the checks above against the production build.
 - Install from Safari on iPhone and Chrome on Android; check standalone display and safe areas.
 - After the first online load, disable network and create/edit records, reload and navigate every section.
