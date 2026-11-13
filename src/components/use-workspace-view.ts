@@ -15,7 +15,7 @@ const pages = new Set([
 const filters = new Set(["Inbox", "Today", "Upcoming", "Overdue", "Completed"]);
 const initial = {
   page: "today",
-  filter: "Today",
+  filter: "Inbox",
   selected: "",
   month: "",
   showArchive: false,
@@ -29,7 +29,9 @@ function read(): View {
   const month = p.get("month") || "";
   return {
     page: pages.has(page) ? page : "today",
-    filter: filters.has(p.get("filter") || "") ? p.get("filter")! : "Today",
+    filter: filters.has(p.get("filter") || "")
+      ? p.get("filter")!
+      : initial.filter,
     selected:
       /^\d{4}-\d{2}-\d{2}$/.test(date) &&
       !Number.isNaN(Date.parse(date)) &&
@@ -45,7 +47,7 @@ function read(): View {
 }
 function href(view: View) {
   const p = new URLSearchParams();
-  if (view.filter !== "Today") p.set("filter", view.filter);
+  if (view.filter !== initial.filter) p.set("filter", view.filter);
   if (view.selected) p.set("date", view.selected);
   if (view.month) p.set("month", view.month);
   if (view.showArchive) p.set("archived", "1");

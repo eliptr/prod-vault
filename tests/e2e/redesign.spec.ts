@@ -6,7 +6,16 @@ test("navigation links preserve filters and calendar selection across reload", a
   page,
 }) => {
   await loadSample(page);
-  await page.goto("/#tasks");
+  await page.getByRole("link", { name: "Tasks", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Inbox", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "Today", exact: true }).click();
+  await expect(page).toHaveURL(/filter=Today/);
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Today", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Upcoming", exact: true }).click();
   await expect(page).toHaveURL(/filter=Upcoming/);
   await page.reload();
@@ -276,7 +285,7 @@ test("all record editors retain optional fields, links and archive actions", asy
   await page.getByLabel("Target", { exact: true }).fill("120");
   await page.getByRole("button", { name: "Save goal", exact: true }).click();
   await expect(page.getByText("90 / 120", { exact: true })).toBeVisible();
-  await page.goto("/#tasks");
+  await page.goto("/#tasks?filter=Today");
   await page
     .getByRole("button", { name: "Clear a small corner", exact: true })
     .click();

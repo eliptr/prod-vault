@@ -18,7 +18,7 @@ test("projects, linked goals, quantity history, recurrence, and deletion", async
     .getByRole("combobox", { name: "Project", exact: true })
     .selectOption({ label: "Garden" });
   await page.getByRole("button", { name: "Save goal" }).click();
-  await page.goto("/#tasks");
+  await page.goto("/#tasks?filter=Today");
   await page.getByRole("button", { name: "Add task", exact: true }).click();
   await page.getByLabel("Name", { exact: true }).fill("Plant herbs");
   const today = new Intl.DateTimeFormat("en-CA", {
@@ -42,6 +42,7 @@ test("projects, linked goals, quantity history, recurrence, and deletion", async
   const input = page.getByRole("spinbutton", { name: /Drink water quantity/ });
   await input.fill("8");
   await input.blur();
+  await expect(page.locator(".habit-meta")).toContainText("8 / 8 glasses");
   await page.reload();
   await expect(
     page.getByRole("spinbutton", { name: /Drink water quantity/ }),
@@ -52,7 +53,7 @@ test("projects, linked goals, quantity history, recurrence, and deletion", async
     .getByRole("button", { name: "Open calendar", exact: true })
     .click();
   await expect(page.getByRole("heading", { name: "Calendar" })).toBeVisible();
-  await page.goto("/#tasks");
+  await page.goto("/#tasks?filter=Today");
   await page.getByRole("button", { name: "Add task", exact: true }).click();
   await page.getByLabel("Name", { exact: true }).fill("Water herbs");
   await page.getByLabel("Due date").fill(today);
