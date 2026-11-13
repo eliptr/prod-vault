@@ -191,7 +191,7 @@ test("monthly heatmaps support keyboard movement, selection and week starts", as
   const rowBox = await page.locator(".has-month > .habit-row").boundingBox();
   expect(gridBox!.y).toBeGreaterThanOrEqual(rowBox!.y + rowBox!.height);
   expect(gridBox!.width).toBe(168);
-  expect(gridBox!.height).toBeLessThanOrEqual(134);
+  expect(gridBox!.height).toBeLessThanOrEqual(110);
 
   await grid.locator('[tabindex="0"]').focus();
   await page.keyboard.press("Home");

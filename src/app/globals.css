@@ -612,7 +612,7 @@ main {
   display: grid;
   grid-template-columns: repeat(7, 24px);
   grid-template-rows: 14px;
-  grid-auto-rows: 20px;
+  grid-auto-rows: 16px;
   grid-auto-flow: row;
   gap: 0;
   width: max-content;
@@ -627,16 +627,16 @@ main {
 .habit-grid button {
   min-width: 24px;
   width: 24px;
-  min-height: 20px;
-  height: 20px;
+  min-height: 16px;
+  height: 16px;
   padding: 0;
   border: 0;
   border-radius: 3px;
 }
 .heatmap-square {
   display: block;
-  width: 10px;
-  height: 6px;
+  width: 18px;
+  height: 10px;
   background: var(--line);
   border-radius: 2px;
 }
@@ -1497,7 +1497,7 @@ legend {
     z-index: 10;
     display: flex;
     justify-content: space-around;
-    border-top: 1px solid var(--line);
+    border-top: 1px solid color-mix(in srgb, var(--line) 45%, var(--surface));
     background: var(--surface);
     height: calc(1px + var(--nav-height) + var(--safe-area-bottom));
     padding: 0 max(4px, env(safe-area-inset-right, 0px)) var(--safe-area-bottom)
@@ -1526,6 +1526,15 @@ legend {
   }
   .bottom-nav a.active {
     color: var(--green);
+    position: relative;
+    isolation: isolate;
+  }
+  .bottom-nav a.active::before {
+    content: "";
+    position: absolute;
+    inset: 4px 3px;
+    z-index: -1;
+    border-radius: 8px;
     background: var(--soft);
   }
   .quick-add {
@@ -1718,7 +1727,7 @@ legend {
 .habit-list .habit-grid {
   grid-template-columns: repeat(7, max(24px, 1.4rem));
   grid-template-rows: max(14px, 0.875rem);
-  grid-auto-rows: max(20px, 1.25rem);
+  grid-auto-rows: max(16px, 1rem);
 }
 .habit-list .heatmap-day {
   line-height: 1;

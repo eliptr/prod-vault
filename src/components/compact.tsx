@@ -273,13 +273,13 @@ export function TaskRow({
             <Pencil size={12} aria-hidden="true" className="edit-mark" />
           </button>
           <div className="task-meta">
-            {t.templateId && <span>Repeating</span>}
-            {project && <span>{project}</span>}
             {showPriority && (
               <span className="priority" title={`Priority: ${t.priority}`}>
                 {t.priority}
               </span>
             )}
+            {project && <span>{project}</span>}
+            {t.templateId && <span>Repeating</span>}
             {t.showDaily && <span>Daily</span>}
             <span className="task-date-actions">
               {t.due &&

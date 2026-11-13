@@ -215,12 +215,12 @@ test("weekly labels follow streaks, heatmaps are shorter and Today overdue dates
       if (screen === "habits") {
         const grid = await habit.locator(".habit-grid").boundingBox();
         expect(grid!.width).toBe(168);
-        expect(grid!.height).toBe(134);
+        expect(grid!.height).toBe(110);
         const cell = await habit
           .locator(".habit-grid button")
           .first()
           .boundingBox();
-        expect(cell!.height).toBe(20);
+        expect(cell!.height).toBe(16);
         expect(cell!.width).toBe(24);
       }
       if (screen === "today") {
