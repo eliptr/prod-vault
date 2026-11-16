@@ -17,6 +17,7 @@ import {
   Plus,
 } from "lucide-react";
 import { db, snapshot, materialize, restore } from "@/lib/db";
+import { compareHabitIcons } from "@/lib/habit-icons";
 import {
   addDays,
   daysBetween,
@@ -235,8 +236,12 @@ export default function Vault() {
       </div>
     );
   const activeHabits = data.habits.filter((h) => !h.archived);
-  const habits = data.habits.filter((h) => showArchive || !h.archived);
-  const todayHabits = activeHabits.filter((h) => scheduled(h, today));
+  const habits = data.habits
+    .filter((h) => showArchive || !h.archived)
+    .sort(compareHabitIcons);
+  const todayHabits = activeHabits
+    .filter((h) => !h.hiddenFromToday && scheduled(h, today))
+    .sort(compareHabitIcons);
   const doneHabits = todayHabits.filter((h) =>
     completed(h, data.entries, today, settings.weekStart),
   ).length;
@@ -602,6 +607,13 @@ export default function Vault() {
   return (
     <div
       className="app-shell"
+      onPointerDownCapture={(event) => {
+        event.currentTarget.dataset.focusInput = "pointer";
+      }}
+      onKeyDownCapture={(event) => {
+        if (!event.altKey && !event.ctrlKey && !event.metaKey)
+          delete event.currentTarget.dataset.focusInput;
+      }}
       onClickCapture={(event) => {
         const button = (event.target as Element).closest("button");
         if (button && !event.currentTarget.querySelector("dialog[open]"))

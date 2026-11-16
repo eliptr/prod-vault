@@ -15,6 +15,7 @@ import {
 import CenteredDialog from "./dialog";
 import { ZodError } from "zod";
 import { db, remove } from "@/lib/db";
+import { habitIcons } from "@/lib/habit-icons";
 import {
   addDays,
   habitSchema,
@@ -97,6 +98,10 @@ export default function Editor({
   );
   const r = edit.record;
   const h = r as Habit | undefined;
+  const [icon, setIcon] = useState(h?.icon ?? habitIcons[0].icon);
+  const [iconsOpen, setIconsOpen] = useState(false);
+  const iconTrigger = useRef<HTMLButtonElement>(null);
+  const iconPaletteId = useId();
   const t = r as Task | undefined;
   const p = r as Project | undefined;
   const g = r as Goal | undefined;
@@ -156,7 +161,8 @@ export default function Editor({
         await db.habits.put(
           habitSchema.parse({
             ...base,
-            icon: s("icon") || "✦",
+            icon: s("icon").trim(),
+            hiddenFromToday: f.get("showOnToday") === null || undefined,
             color: s("color"),
             kind: kind === "weekly" ? "quantity" : kind,
             period: kind === "weekly" ? "weekly" : "daily",
@@ -477,6 +483,14 @@ export default function Editor({
                   </div>
                 </fieldset>
               )}
+              <label className="habit-today-setting">
+                <input
+                  type="checkbox"
+                  name="showOnToday"
+                  defaultChecked={!h?.hiddenFromToday}
+                />
+                Show on Today
+              </label>
               <details>
                 <summary>Appearance</summary>
                 <div className="form-row">
@@ -484,7 +498,8 @@ export default function Editor({
                     Icon
                     <input
                       name="icon"
-                      defaultValue={h?.icon || "✦"}
+                      value={icon}
+                      onChange={(event) => setIcon(event.target.value)}
                       maxLength={8}
                     />
                   </Field>
@@ -496,6 +511,48 @@ export default function Editor({
                       defaultValue={h?.color || "#87a993"}
                     />
                   </Field>
+                </div>
+                <div
+                  className="habit-icon-picker"
+                  onKeyDown={(event) => {
+                    if (!iconsOpen || event.key !== "Escape") return;
+                    event.preventDefault();
+                    setIconsOpen(false);
+                    iconTrigger.current?.focus();
+                  }}
+                >
+                  <button
+                    type="button"
+                    ref={iconTrigger}
+                    aria-expanded={iconsOpen}
+                    aria-controls={iconPaletteId}
+                    onClick={() => setIconsOpen(!iconsOpen)}
+                  >
+                    Choose icon
+                  </button>
+                  <div
+                    id={iconPaletteId}
+                    role="group"
+                    aria-label="Habit icons"
+                    hidden={!iconsOpen}
+                  >
+                    {habitIcons.map((preset) => (
+                      <button
+                        key={preset.icon}
+                        type="button"
+                        aria-label={preset.label}
+                        aria-pressed={icon === preset.icon}
+                        onClick={() => {
+                          setIcon(preset.icon);
+                          if (icon !== preset.icon) setDirty(true);
+                          setIconsOpen(false);
+                          iconTrigger.current?.focus();
+                        }}
+                      >
+                        {preset.icon}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </details>
               {fieldErrors.weekdays && (

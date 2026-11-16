@@ -255,12 +255,15 @@ test("compact controls, icon-only add and phone header removal retain creation a
         expect(Math.abs(first!.y - second!.y)).toBeLessThan(2);
         expect(first!.x + first!.width).toBeLessThanOrEqual(second!.x);
         await expect(page.locator(".habit-list .entry-caption")).toHaveCount(0);
-        const check = await records
-          .nth(1)
-          .locator(".habit-control")
-          .boundingBox();
-        const grid = await records.nth(1).locator(".habit-grid").boundingBox();
-        const streak = await records.nth(1).locator(".streak").boundingBox();
+        const checkHabit = records.filter({
+          has: page.getByRole("button", {
+            name: "Move your body",
+            exact: true,
+          }),
+        });
+        const check = await checkHabit.locator(".habit-control").boundingBox();
+        const grid = await checkHabit.locator(".habit-grid").boundingBox();
+        const streak = await checkHabit.locator(".streak").boundingBox();
         expect(
           Math.abs(
             check!.y + check!.height / 2 - streak!.y - streak!.height / 2,

@@ -99,7 +99,15 @@ button:disabled:hover {
 }
 :focus-visible {
   outline: 2px solid var(--green);
-  outline-offset: 2px;
+  outline-offset: 1px;
+}
+.app-shell[data-focus-input="pointer"]
+  :is(button, a, summary, input, select, textarea):focus-visible:not(
+    [aria-invalid="true"]
+  ):not(.selected),
+#main-content:focus,
+.dialog-header > h2:focus {
+  outline: none;
 }
 a {
   color: inherit;
@@ -888,7 +896,8 @@ main {
   opacity: 0;
   cursor: pointer;
 }
-.file-label:focus-within {
+.app-shell:not([data-focus-input="pointer"])
+  .file-label:has(input:focus-visible) {
   outline: 2px solid var(--green);
   outline-offset: 2px;
 }
@@ -1021,6 +1030,39 @@ main {
   gap: 4px;
   font-size: 0.75rem;
 }
+.editor-form .habit-today-setting {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  width: fit-content;
+  cursor: pointer;
+}
+.habit-icon-picker {
+  margin-top: 4px;
+}
+.habit-icon-picker > button {
+  padding-inline: 0;
+  color: var(--green);
+  font-size: 0.75rem;
+}
+.habit-icon-picker > div:not([hidden]) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.habit-icon-picker [aria-pressed] {
+  width: 36px;
+  min-height: 36px;
+  padding: 0;
+  background: var(--subtle);
+  font-size: 1rem;
+}
+.habit-icon-picker [aria-pressed="true"] {
+  border-color: var(--green);
+  background: var(--soft);
+}
 .form-field {
   display: grid;
   gap: 4px;
@@ -1082,7 +1124,10 @@ legend {
   background: var(--soft);
   color: var(--green);
 }
-.weekdays input:focus-visible + span {
+.app-shell:not([data-focus-input="pointer"])
+  .weekdays
+  input:focus-visible
+  + span {
   outline: 2px solid var(--green);
   outline-offset: 2px;
 }
@@ -1611,7 +1656,7 @@ legend {
     auto-fit,
     minmax(min(100%, var(--habit-column-min)), 1fr)
   );
-  gap: 8px var(--habit-gap);
+  gap: 4px var(--habit-gap);
 }
 .habit-list > .empty {
   grid-column: 1 / -1;
@@ -1620,7 +1665,7 @@ legend {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  padding: 4px 0;
+  padding: 2px 0;
   border-top: 1px solid var(--line);
 }
 .habit-list .has-month > .habit-row {
@@ -1634,6 +1679,12 @@ legend {
 .habit-list .has-month .habit-identity {
   flex: none;
   width: 100%;
+}
+.habit-list .habit-identity .record-name {
+  min-height: 24px;
+}
+.habit-list .habit-identity .name-text {
+  overflow-wrap: anywhere;
 }
 .habit-list .has-month .habit-control {
   margin: 0;

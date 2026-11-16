@@ -16,6 +16,7 @@ export const habitSchema = z
     ...base,
     title: z.string().trim().min(1).max(100),
     icon: z.string().max(8),
+    hiddenFromToday: z.boolean().optional(),
     color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
     kind: z.enum(["check", "quantity"]),
     period: z.enum(["daily", "weekly"]).default("daily"),
