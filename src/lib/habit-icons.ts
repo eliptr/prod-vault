@@ -2,15 +2,15 @@ import type { Habit } from "./domain";
 
 export const habitIcons = [
   { icon: "✦", label: "Star" },
-  { icon: "🌿", label: "Leaf" },
-  { icon: "🏃", label: "Run" },
-  { icon: "🏋️", label: "Weights" },
-  { icon: "💧", label: "Water" },
-  { icon: "☕", label: "Coffee" },
-  { icon: "📖", label: "Book" },
-  { icon: "✍️", label: "Write" },
-  { icon: "🏠", label: "Home" },
-  { icon: "🌙", label: "Moon" },
+  { icon: "◇", label: "Diamond" },
+  { icon: "△", label: "Triangle" },
+  { icon: "○", label: "Circle" },
+  { icon: "□", label: "Square" },
+  { icon: "＋", label: "Plus" },
+  { icon: "↗", label: "Arrow" },
+  { icon: "✎", label: "Pencil" },
+  { icon: "⌂", label: "Home" },
+  { icon: "☾", label: "Moon" },
 ] as const;
 
 const presetOrder = new Map<string, number>(

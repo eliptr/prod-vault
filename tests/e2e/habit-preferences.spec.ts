@@ -10,8 +10,8 @@ test("habit visibility and icons work on Today, offline and after restore", asyn
   const todayHabits = page.locator(".section-habits .name-text");
   const habitNames = page.locator(".habit-list .name-text");
   await expect(todayHabits).toHaveText([
-    "Move your body",
     "A moment of focus",
+    "Move your body",
     "Read a little",
   ]);
   await expect(page.locator(".summary-strip strong").first()).toHaveText("0/3");
@@ -24,11 +24,11 @@ test("habit visibility and icons work on Today, offline and after restore", asyn
   await page.getByText("Appearance", { exact: true }).click();
   const picker = page.getByRole("button", { name: "Choose icon", exact: true });
   await picker.click();
-  await page.getByRole("button", { name: "Leaf", exact: true }).click();
+  await page.getByRole("button", { name: "Diamond", exact: true }).click();
   await expect(picker).toHaveAttribute("aria-expanded", "false");
-  await expect(page.getByLabel("Icon", { exact: true })).toHaveValue("🌿");
+  await expect(page.getByLabel("Icon", { exact: true })).toHaveValue("◇");
   await page.getByRole("button", { name: "Save habit", exact: true }).click();
-  await expect(todayHabits).toHaveText(["Move your body", "A moment of focus"]);
+  await expect(todayHabits).toHaveText(["A moment of focus", "Move your body"]);
   await expect(page.locator(".summary-strip strong").first()).toHaveText("0/2");
   await page.getByRole("button", { name: "Log habit", exact: true }).click();
   await expect(
@@ -50,9 +50,9 @@ test("habit visibility and icons work on Today, offline and after restore", asyn
   ).toBeVisible();
   await page.goto("/#habits");
   await expect(habitNames).toHaveText([
-    "Move your body",
     "Read a little",
     "A moment of focus",
+    "Move your body",
   ]);
 
   await page.goto("/#settings");
@@ -75,18 +75,18 @@ test("habit visibility and icons work on Today, offline and after restore", asyn
   await expect(show).not.toBeChecked();
   await show.check();
   await page.getByText("Appearance", { exact: true }).click();
-  await expect(page.getByLabel("Icon", { exact: true })).toHaveValue("🌿");
+  await expect(page.getByLabel("Icon", { exact: true })).toHaveValue("◇");
   await page.getByLabel("Icon", { exact: true }).fill("🚲");
   await page.getByRole("button", { name: "Save habit", exact: true }).click();
   await expect(habitNames).toHaveText([
-    "Move your body",
     "A moment of focus",
+    "Move your body",
     "Read a little",
   ]);
   await page.goto("/#today");
   await expect(todayHabits).toHaveText([
-    "Move your body",
     "A moment of focus",
+    "Move your body",
     "Read a little",
   ]);
 });

@@ -10,9 +10,9 @@
   --green: #3f6350;
   --soft: #e5ede5;
   --danger: #a13830;
-  --nav-height: max(52px, 3rem);
+  --nav-height: max(44px, 2.75rem);
   --safe-area-top: env(safe-area-inset-top, 0px);
-  --safe-area-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  --safe-area-bottom: max(4px, env(safe-area-inset-bottom, 0px));
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
@@ -1299,13 +1299,13 @@ legend {
     margin-left: 0;
   }
   .content {
-    padding: calc(8px + var(--safe-area-top))
+    padding: max(4px, var(--safe-area-top))
       max(12px, env(safe-area-inset-right, 0px))
       calc(var(--nav-height) + 72px + var(--safe-area-bottom))
       max(12px, env(safe-area-inset-left, 0px));
   }
   .today-content {
-    padding: calc(8px + var(--safe-area-top))
+    padding: max(4px, var(--safe-area-top))
       max(8px, env(safe-area-inset-right, 0px))
       calc(var(--nav-height) + 72px + var(--safe-area-bottom))
       max(8px, env(safe-area-inset-left, 0px));
@@ -1323,7 +1323,7 @@ legend {
     min-height: 40px;
   }
   .section-heading {
-    min-height: 44px;
+    min-height: 32px;
     gap: 10px;
     margin-bottom: 8px;
   }
@@ -1682,6 +1682,7 @@ legend {
 }
 .habit-list .habit-identity .record-name {
   min-height: 24px;
+  padding-top: 4px;
 }
 .habit-list .habit-identity .name-text {
   overflow-wrap: anywhere;
@@ -1790,6 +1791,7 @@ legend {
 
 .habit-list .habit-meta {
   font-size: 0.6875rem;
+  line-height: 1.25;
   gap: 4px;
 }
 .habit-list .streak {
@@ -1807,8 +1809,8 @@ legend {
 .habit-list .habit-meta .check {
   width: 28px;
   min-width: 28px;
-  min-height: 28px;
-  height: 28px;
+  min-height: 24px;
+  height: 24px;
 }
 .goal-actions {
   display: flex;

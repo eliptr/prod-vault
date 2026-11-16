@@ -35,11 +35,12 @@ test("iPhone safe areas and browser chrome follow the selected theme", async ({
     expect(rect!.height).toBeGreaterThanOrEqual(44);
     expect(rect!.y + rect!.height).toBeLessThanOrEqual(844 - 34);
   }
-  expect(nav!.height).toBe(87);
+  expect(nav!.height).toBe(79);
   const heading = await page
     .getByRole("heading", { name: "Today", exact: true })
     .boundingBox();
   expect(heading!.y).toBeGreaterThanOrEqual(59);
+  expect(heading!.y).toBeLessThanOrEqual(67);
   await expect(page.locator("html")).toHaveCSS(
     "background-color",
     "rgb(25, 30, 27)",
